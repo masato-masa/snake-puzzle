@@ -1,0 +1,124 @@
+/**
+ * ポップな 2D テイストの配色。
+ * 青空・木枠の盤面・シアンに光るパネル、という組み合わせで統一する。
+ */
+export const colors = {
+  skyTop: '#4FB6EF',
+  skyMid: '#8FD6F7',
+  skyBottom: '#D6F0FF',
+  cloud: 'rgba(255,255,255,0.85)',
+
+  caveTop: '#6B4B2A',
+  caveMid: '#A9784A',
+  caveBottom: '#E4C79A',
+  caveRock: 'rgba(60, 38, 18, 0.35)',
+
+  nightTop: '#131A3E',
+  nightMid: '#26306B',
+  nightBottom: '#4A4E96',
+  star: 'rgba(255, 250, 220, 0.95)',
+
+  wood: '#B0762F',
+  woodDark: '#6B4116',
+  woodLight: '#D09A52',
+  woodGrain: 'rgba(107, 65, 22, 0.25)',
+
+  floor: '#F7E6C4',
+  floorLine: 'rgba(107, 65, 22, 0.14)',
+
+  /**
+   * 埋めるべきマス（光るパネル）。
+   * ヘビの配色（緑・水色・ピンク・オレンジ）のどれとも重ならない、
+   * すみれ色（バイオレット）にしている。似た色のヘビだけが対応する、という
+   * 誤解を生まないようにするため。
+   */
+  glow: '#A78BFA',
+  glowSoft: 'rgba(167, 139, 250, 0.32)',
+  glowEdge: '#6D28D9',
+  glowCore: '#F5F3FF',
+
+  panel: '#FFF8EA',
+  panelBorder: '#C89A5B',
+
+  text: '#4A2E14',
+  textMuted: '#8A6B47',
+  textOnDark: '#FFFFFF',
+
+  accent: '#FFB020',
+  accentDark: '#C97C00',
+  success: '#3FA845',
+  successDark: '#26702B',
+  danger: '#E8382F',
+  dangerDark: '#A8180F',
+
+  /**
+   * ステージ一覧の「むずかしさ」表示専用の色。
+   * クリア画面の成績★（accent の金色）とは別物だと一目でわかるよう、あえて別系統の色にしている。
+   */
+  difficultyOn: '#6B5CA5',
+  difficultyOff: 'rgba(107, 92, 165, 0.22)',
+} as const;
+
+/** ギミックの配色。 */
+export const mechanics = {
+  sand: '#EAD3A0',
+  sandEdge: '#C8A461',
+  sandDot: 'rgba(122, 74, 33, 0.3)',
+  /** ゲートとスイッチは group ごとに色を変える。 */
+  gateGroups: [
+    { main: '#8B5CF6', dark: '#5B21B6' },
+    { main: '#EC4899', dark: '#9D174D' },
+    { main: '#0EA5E9', dark: '#075985' },
+  ],
+  /** ワープ穴はペアごとに色を変える。 */
+  warpPairs: [
+    { main: '#7C3AED', dark: '#3B0F86' },
+    { main: '#0891B2', dark: '#064E5B' },
+    { main: '#DB2777', dark: '#831843' },
+  ],
+} as const;
+
+/** group 名から安定した色を選ぶ。 */
+export const colorForGroup = (
+  group: string,
+  palette: readonly { main: string; dark: string }[],
+) => {
+  let hash = 0;
+  for (let i = 0; i < group.length; i++) hash = (hash * 31 + group.charCodeAt(i)) >>> 0;
+  return palette[hash % palette.length];
+};
+
+export type SnakeSkin = { body: string; dark: string; light: string };
+
+/** ヘビの配色。body を Level の color に入れ、描画側で dark/light を引く。 */
+export const snakeSkins = {
+  green: { body: '#5DC94F', dark: '#2C7F31', light: '#95EE87' },
+  sky: { body: '#4FB8E8', dark: '#256F98', light: '#9BDFF8' },
+  pink: { body: '#F06CA8', dark: '#A32E63', light: '#FBB1D0' },
+  amber: { body: '#F5A623', dark: '#A96605', light: '#FBD08A' },
+} as const satisfies Record<string, SnakeSkin>;
+
+export const snakeColors = {
+  green: snakeSkins.green.body,
+  sky: snakeSkins.sky.body,
+  pink: snakeSkins.pink.body,
+  amber: snakeSkins.amber.body,
+} as const;
+
+const skinList: SnakeSkin[] = Object.values(snakeSkins);
+
+export const skinFor = (bodyColor: string): SnakeSkin =>
+  skinList.find((skin) => skin.body === bodyColor) ?? snakeSkins.green;
+
+/** ポップな見た目の共通値。 */
+export const ui = {
+  radius: 18,
+  outline: 3,
+  shadow: {
+    shadowColor: 'rgba(74, 46, 20, 0.45)',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
+  },
+} as const;
