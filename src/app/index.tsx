@@ -4,6 +4,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 
 import { DifficultyMeter } from '@/components/difficulty-meter';
 import { SkyBackground } from '@/components/sky-background';
+import type { Level } from '@/engine';
 import { todayKey } from '@/levels/daily';
 import {
   displayName,
@@ -14,6 +15,7 @@ import {
   WORLDS,
 } from '@/levels/levels';
 import { currentStreak, loadDaily, type DailyState } from '@/storage/daily';
+import { deleteCustomLevel, loadCustomLevels } from '@/storage/custom-levels';
 import { loadProgress, type Progress } from '@/storage/progress';
 import { colors, ui } from '@/theme';
 
@@ -21,6 +23,7 @@ export default function StageSelectScreen() {
   const router = useRouter();
   const [progress, setProgress] = useState<Progress>({});
   const [daily, setDaily] = useState<DailyState | null>(null);
+  const [customLevels, setCustomLevels] = useState<Level[]>([]);
   const today = todayKey();
 
   useFocusEffect(
@@ -31,6 +34,9 @@ export default function StageSelectScreen() {
       });
       loadDaily().then((d) => {
         if (active) setDaily(d);
+      });
+      loadCustomLevels().then((ls) => {
+        if (active) setCustomLevels(ls);
       });
       return () => {
         active = false;
@@ -157,11 +163,70 @@ export default function StageSelectScreen() {
           );
         })}
 
-        {__DEV__ ? (
-          <Pressable style={styles.editorLink} onPress={() => router.push('/editor')}>
-            <Text style={styles.editorLabel}>ステージエディタ（開発用）</Text>
-          </Pressable>
+        {customLevels.length > 0 ? (
+          <View style={styles.world}>
+            <View style={styles.worldHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.worldName}>マイステージ</Text>
+                <Text style={styles.worldSubtitle}>エディタで作った自分だけのステージ</Text>
+              </View>
+              <Text style={styles.worldCount}>{customLevels.length}</Text>
+            </View>
+
+            {customLevels.map((level) => {
+              const record = progress[level.id];
+              return (
+                <Pressable
+                  key={level.id}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/game/[levelId]',
+                      params: { levelId: level.id },
+                    })
+                  }
+                  style={({ pressed }) => [
+                    styles.card,
+                    pressed && { marginTop: 3, borderBottomWidth: 2 },
+                  ]}>
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.cardTitle}>{level.name}</Text>
+                    {record?.cleared ? (
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>クリア</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <View style={styles.metaRow}>
+                    <DifficultyMeter level={level.difficulty ?? 1} />
+                    <Text style={styles.cardMeta}>
+                      {level.rows}×{level.cols}・ヘビ {level.snakes.length} ひき
+                      {level.parMoves ? `・さいしょう ${level.parMoves} 手` : ''}
+                    </Text>
+                  </View>
+
+                  <View style={styles.customRow}>
+                    <Text style={styles.cardBest}>
+                      {record?.cleared ? `じこベスト ${record.bestMoves} 手` : 'まだクリアしてない'}
+                    </Text>
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        deleteCustomLevel(level.id).then(setCustomLevels);
+                      }}
+                      hitSlop={8}>
+                      <Text style={styles.deleteLabel}>削除</Text>
+                    </Pressable>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
         ) : null}
+
+        <Pressable style={styles.editorLink} onPress={() => router.push('/editor')}>
+          <Text style={styles.editorLabel}>ステージエディタ</Text>
+        </Pressable>
       </ScrollView>
     </SkyBackground>
   );
@@ -357,6 +422,17 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 12,
     fontWeight: '700',
+  },
+  customRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  deleteLabel: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   editorLink: {
     marginTop: 10,

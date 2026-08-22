@@ -725,6 +725,62 @@ export const LEVELS: Level[] = [
     difficulty: 5,
     hint: '2匹がスイッチへ。まん中の長いヘビが両方のゲートを抜けたら、2匹は自分のゲートを踏まずに離れよう。',
   },
+  {
+    // [試作・評価用] 問い(F+E+B): 2つのゲートを別々の2手で抜ける。両方のスイッチは
+    // それぞれ自分の手の番までしか保証されないので、離すタイミングを間違えると詰む。
+    // [試作v2・評価用] 問い(F+E+B+A強化): スイッチへは直線で行けず、
+    // 壁で曲がってからでないと届かない。ゲートを抜くのは1回のスライドで済むが、
+    // そこへ至る2匹の経路自体が小さな道順パズルになっている。
+    // [試作v3・評価用] 2匹だけ・壁2枚・14手・最短解1通り。
+    // ゲート/スイッチは使わず、2匹が交互に相手の胴体を壁として使い合う
+    // 密な絡み合いだけで難度を出している（ユーザー提供の参考ステージから
+    // 「到達可能な状態をBFS探索→ソルバーで近道が無いことを確認」という手順で発見）。
+    id: 'tangle-dense-7x7',
+    name: '[試作v3] 二匹のもつれ',
+    rows: 7,
+    cols: 7,
+    walls: cells([[4, 4], [5, 0]]),
+    targets: targets([
+      [1, 1],
+      [1, 2],
+      [2, 1],
+      [4, 1],
+      [4, 2],
+      [4, 3],
+    ]),
+    snakes: [
+      snake('a', snakeColors.green, [[0, 0], [0, 1], [0, 2]]),
+      snake('b', snakeColors.sky, [[1, 2], [1, 1], [1, 0]]),
+    ],
+    parMoves: 14,
+    difficulty: 5,
+    hint: '正解は1通りしかない。相手の胴体が自分の壁にも足場にもなる。最後の形から逆にたどってみよう。',
+  },
+  {
+    // [試作v4・評価用] 2匹・壁1枚だけ・16手・最短解4通り。前作(tangle-dense-7x7)と
+    // 同じ「到達可能な状態をBFS探索→ソルバーで近道が無いことを確認→最短解の本数が
+    // 少ないものを選ぶ」手順で発見した、さらに深い（8x8）バージョン。
+    id: 'tangle-dense-8x8',
+    name: '[試作v4] 二匹のもつれ・応用',
+    rows: 8,
+    cols: 8,
+    walls: cells([[6, 2]]),
+    targets: targets([
+      [1, 0],
+      [2, 0],
+      [3, 0],
+      [7, 0],
+      [7, 1],
+      [6, 1],
+    ]),
+    snakes: [
+      snake('a', snakeColors.green, [[0, 2], [0, 1], [0, 0]]),
+      snake('b', snakeColors.sky, [[0, 3], [0, 4], [0, 5]]),
+    ],
+    parMoves: 16,
+    difficulty: 5,
+    hint: '正解の道筋はごくわずか。相手の胴体が壁にも足場にもなる。終形から逆にたどってみよう。',
+  },
 ];
 
 export type WorldTheme = 'meadow' | 'cave' | 'night';
@@ -794,6 +850,8 @@ export const WORLDS: World[] = [
       'gate-move-in-7x7',
       'orientation-trio-4x6',
       'graduation-7x10',
+      'tangle-dense-7x7',
+      'tangle-dense-8x8',
     ],
   },
 ];
@@ -841,5 +899,7 @@ export const getLevel = (id: string): Level | undefined =>
 export const getLevelIndex = (id: string): number =>
   LEVELS.findIndex((level) => level.id === id);
 
-export const getNextLevel = (id: string): Level | undefined =>
-  LEVELS[getLevelIndex(id) + 1];
+export const getNextLevel = (id: string): Level | undefined => {
+  const index = getLevelIndex(id);
+  return index === -1 ? undefined : LEVELS[index + 1];
+};

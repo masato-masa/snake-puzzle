@@ -1,5 +1,6 @@
+import { useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { Board } from '@/components/board';
 import { ActionButton } from '@/components/hud';
@@ -18,6 +19,7 @@ import {
   type Switch,
   type WarpPair,
 } from '@/engine';
+import { nextCustomLevelId, saveCustomLevel } from '@/storage/custom-levels';
 import { colors, snakeColors, ui } from '@/theme';
 
 type Mode = 'wall' | 'target' | 'snake' | 'sand' | 'gate' | 'switch' | 'warp' | 'erase';
@@ -39,14 +41,18 @@ const GROUP = 'g';
 const PALETTE = Object.values(snakeColors);
 
 /**
- * 開発用のステージエディタ。
- * 盤面を作って validateLevel とソルバーにかけ、そのまま levels.ts に貼れる JSON を出す。
+ * ステージエディタ。盤面を作って validateLevel とソルバーにかけ、
+ * 「登録してあそぶ」でこの端末に保存してすぐ遊べる（ホーム画面の「マイステージ」に並ぶ）。
+ * levels.ts に正式採用したい場合は、下の JSON をそのまま貼る。
  */
 export default function EditorScreen() {
   const { width } = useWindowDimensions();
+  const router = useRouter();
 
   const [rows, setRows] = useState(5);
   const [cols, setCols] = useState(5);
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
   const [mode, setMode] = useState<Mode>('target');
   const [walls, setWalls] = useState<Pos[]>([]);
   const [targets, setTargets] = useState<Pos[]>([]);
@@ -208,6 +214,42 @@ export default function EditorScreen() {
     setResult(`最少 ${solution.minMoves} 手\n${steps}`);
   };
 
+  /** 解けることを確認したうえで保存し、そのまま遊べる画面に移動する。 */
+  const registerAndPlay = async () => {
+    if (errors.length > 0) {
+      setResult('定義にエラーがあります。先に解消してください。');
+      return;
+    }
+    setSaving(true);
+    try {
+      const solution = solve(level, { maxMoves: 24, maxStates: 400_000 });
+      if (!solution.solved) {
+        setAnalysis(null);
+        setResult(
+          solution.exhausted
+            ? `打ち切り（${solution.visited} 状態を探索）。解けないか、24 手を超えます。`
+            : `解なし（${solution.visited} 状態を探索）`,
+        );
+        return;
+      }
+      const freshAnalysis = analyzeLevel(level);
+      setAnalysis(freshAnalysis);
+      setResult(null);
+
+      const id = nextCustomLevelId();
+      await saveCustomLevel({
+        ...level,
+        id,
+        name: name.trim() || '無題のステージ',
+        parMoves: solution.minMoves ?? undefined,
+        difficulty: freshAnalysis.stars,
+      });
+      router.push({ pathname: '/game/[levelId]', params: { levelId: id } });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // ソルバーは重いので JSON 生成では回さず、直近の実行結果を使う
   const json = useMemo(
     () =>
@@ -242,6 +284,14 @@ export default function EditorScreen() {
         <Stepper label="行" value={rows} onChange={setRows} />
         <Stepper label="列" value={cols} onChange={setCols} />
       </View>
+
+      <TextInput
+        style={styles.nameInput}
+        value={name}
+        onChangeText={setName}
+        placeholder="ステージ名（未入力なら「無題のステージ」）"
+        placeholderTextColor={colors.textMuted}
+      />
 
       <View style={styles.row}>
         {MODES.map((m) => (
@@ -298,6 +348,11 @@ export default function EditorScreen() {
 
       <View style={styles.row}>
         <ActionButton label="ソルバー実行" onPress={runSolver} tone="primary" />
+        <ActionButton
+          label={saving ? '登録中…' : '登録してあそぶ'}
+          onPress={registerAndPlay}
+          tone="primary"
+        />
         <ActionButton
           label="全部消す"
           onPress={() => {
@@ -392,6 +447,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  nameInput: {
+    ...panel,
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   note: {
     color: colors.text,
