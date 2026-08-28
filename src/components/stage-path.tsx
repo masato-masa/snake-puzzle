@@ -59,19 +59,10 @@ const NODE_GAP = 34;
 const NODE_HEIGHT = NODE_SIZE + NODE_GAP;
 const FOCUS_SCALE = 1.3;
 const NEXT_SCALE = 1.15;
-/** トロフィーロードのつづら折り。4 マス周期で 中央→右→中央→左 と振る。 */
-const ZIGZAG_AMPLITUDE = 46;
-const ZIGZAG_CYCLE = [0, 1, 0, -1];
-const offsetForIndex = (index: number) => ZIGZAG_CYCLE[index % ZIGZAG_CYCLE.length] * ZIGZAG_AMPLITUDE;
 const PATH_THICKNESS = 10;
 const PATH_DOT_SIZE = 14;
-/** ドット同士のおおよその間隔（px）。セグメントの長さに応じて個数を決める。 */
+/** ドット同士のおおよその間隔（px）。道全体の長さに応じて個数を決める。 */
 const PATH_DOT_SPACING = 26;
-/** セグメントの長さから、均等に並ぶドットの左端位置（% 単位）を求める。 */
-const dotPositions = (segmentWidth: number) => {
-  const count = Math.max(1, Math.round(segmentWidth / PATH_DOT_SPACING));
-  return Array.from({ length: count }, (_, i) => ((i + 0.5) / count) * 100);
-};
 
 const WOOD_SIGN = require('@/assets/images/ui/wood-sign.png');
 
@@ -86,15 +77,18 @@ type Props = {
   progress: Progress;
   clearedCount: number;
   onSelect: (levelId: string) => void;
+  /** タイル画面からかぶせて開いているときだけ渡す。戻るボタンを出す。 */
+  onClose?: () => void;
 };
 
 /**
- * ステージ選択のメインページ。100 面をつづら折りの一本道として縦に並べ、
- * 画面中央に来たステージだけ拡大表示する。表示は 100 → 1 の順（下ほど古い・
- * 一番下がステージ1）で、開いた瞬間は「次に遊ぶステージ」が中央に来るようにする。
+ * ステージ一覧。100 面を一直線の道として縦に並べ、画面中央に来たステージだけ
+ * 拡大表示する。表示は 100 → 1 の順（下ほど古い・一番下がステージ1）で、
+ * 開いた瞬間は「次に遊ぶステージ」が中央に来るようにする。
  * 見た目は木製の看板ヘッダー＋金属メダルのノードで、盤ゲームらしい厚みを出している。
+ * タイル画面（StageHub）からかぶせて開く形で使うため、onClose を渡すと戻るボタンが出る。
  */
-export function StagePath({ progress, clearedCount, onSelect }: Props) {
+export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) {
   const { height: windowHeight } = useWindowDimensions();
   const isCleared = useCallback((id: string) => !!progress[id]?.cleared, [progress]);
   const displayLevels = useMemo(() => [...LEVELS].reverse(), []);
@@ -147,26 +141,21 @@ export function StagePath({ progress, clearedCount, onSelect }: Props) {
   const focusedWorld = worldOf(focusedLevel.id);
   const padding = containerHeight > 0 ? Math.max(0, containerHeight / 2 - NODE_SIZE / 2) : 0;
 
-  // つづら折りの道すじ（ノードとノードの間を結ぶ、傾いた線分）を一度だけ計算する。
-  const pathSegments = useMemo(() => {
-    const segments: { top: number; offset: number; width: number; rotateDeg: number }[] = [];
-    for (let i = 0; i < displayLevels.length - 1; i++) {
-      const yA = i * NODE_HEIGHT + NODE_HEIGHT / 2;
-      const yB = (i + 1) * NODE_HEIGHT + NODE_HEIGHT / 2;
-      const xA = offsetForIndex(i);
-      const xB = offsetForIndex(i + 1);
-      const dx = xB - xA;
-      const dy = yB - yA;
-      const length = Math.hypot(dx, dy);
-      const rotateDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
-      segments.push({ top: (yA + yB) / 2, offset: (xA + xB) / 2, width: length, rotateDeg });
-    }
-    return segments;
-  }, [displayLevels.length]);
+  // 一直線の道。最初と最後のノード中心を結ぶ長さぶんだけ、等間隔にドットを置く。
+  const trackLength = (displayLevels.length - 1) * NODE_HEIGHT;
+  const pathDotTops = useMemo(() => {
+    const count = Math.max(1, Math.round(trackLength / PATH_DOT_SPACING));
+    return Array.from({ length: count }, (_, i) => NODE_HEIGHT / 2 + ((i + 0.5) / count) * trackLength);
+  }, [trackLength]);
 
   return (
     <SkyBackground theme={focusedWorld?.theme ?? 'meadow'}>
       <View style={styles.ribbonWrap}>
+        {onClose ? (
+          <Pressable onPress={onClose} hitSlop={10} style={styles.backButton}>
+            <Text style={styles.backButtonText}>← もどる</Text>
+          </Pressable>
+        ) : null}
         <View style={styles.ribbon}>
           <Image
             source={WOOD_SIGN}
@@ -194,23 +183,9 @@ export function StagePath({ progress, clearedCount, onSelect }: Props) {
           <View
             pointerEvents="none"
             style={{ position: 'absolute', top: 0, left: 0, right: 0, height: displayLevels.length * NODE_HEIGHT }}>
-            {pathSegments.map((seg, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.pathSegment,
-                  {
-                    top: seg.top - PATH_THICKNESS / 2,
-                    left: '50%',
-                    marginLeft: seg.offset - seg.width / 2,
-                    width: seg.width,
-                    transform: [{ rotate: `${seg.rotateDeg}deg` }],
-                  },
-                ]}>
-                {dotPositions(seg.width).map((leftPercent, j) => (
-                  <View key={j} style={[styles.pathDot, { left: `${leftPercent}%` }]} />
-                ))}
-              </View>
+            <View style={[styles.pathTrack, { height: trackLength }]} />
+            {pathDotTops.map((top, i) => (
+              <View key={i} style={[styles.pathDot, { top: top - PATH_DOT_SIZE / 2 }]} />
             ))}
           </View>
           {displayLevels.map((level, index) => (
@@ -221,7 +196,6 @@ export function StagePath({ progress, clearedCount, onSelect }: Props) {
               unlocked={isLevelUnlocked(level.id, isCleared)}
               isNext={level.id === continueLevel.id}
               focused={index === focusedIndex}
-              offsetX={offsetForIndex(index)}
               onPress={() => onSelect(level.id)}
             />
           ))}
@@ -237,7 +211,6 @@ const StageNode = memo(function StageNode({
   unlocked,
   isNext,
   focused,
-  offsetX,
   onPress,
 }: {
   number: number;
@@ -246,7 +219,6 @@ const StageNode = memo(function StageNode({
   /** 「次に遊ぶステージ」＝クリア済みでも一番若い未クリア面。宝石色で目立たせる。 */
   isNext: boolean;
   focused: boolean;
-  offsetX: number;
   onPress: () => void;
 }) {
   const targetScale = focused ? FOCUS_SCALE : isNext ? NEXT_SCALE : 1;
@@ -275,14 +247,14 @@ const StageNode = memo(function StageNode({
   }, [isNext, pulse]);
 
   const tone: 'locked' | 'current' | Medal = !unlocked ? 'locked' : (medal ?? 'current');
-  const label = !unlocked ? '🔒' : medal ? '✓' : String(number);
+  const label = !unlocked ? '🔒' : String(number);
   const gradients = MEDAL_GRADIENTS[tone];
   const textColor = !unlocked ? colors.textMuted : medal ? colors.text : colors.textOnDark;
   const glowScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] });
   const glowOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] });
 
   const content = (
-    <Animated.View style={{ transform: [{ translateX: offsetX }, { scale }] }}>
+    <Animated.View style={{ transform: [{ scale }] }}>
       {isNext ? (
         <Animated.View
           pointerEvents="none"
@@ -317,11 +289,31 @@ const StageNode = memo(function StageNode({
 
 const styles = StyleSheet.create({
   ribbonWrap: {
+    position: 'relative',
     paddingTop: 18,
     paddingHorizontal: 20,
     paddingBottom: 12,
     alignItems: 'center',
     gap: 8,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 18,
+    left: 16,
+    zIndex: 1,
+    backgroundColor: colors.panel,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: colors.panelBorder,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    ...ui.shadow,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  backButtonText: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '900',
   },
   ribbon: {
     position: 'relative',
@@ -365,18 +357,22 @@ const styles = StyleSheet.create({
   listArea: {
     flex: 1,
   },
-  pathSegment: {
+  /** ノードの列の中央を貫く、まっすぐな道。 */
+  pathTrack: {
     position: 'absolute',
-    height: PATH_THICKNESS,
+    top: NODE_HEIGHT / 2,
+    left: '50%',
+    marginLeft: -PATH_THICKNESS / 2,
+    width: PATH_THICKNESS,
     borderRadius: PATH_THICKNESS / 2,
     backgroundColor: colors.medalGold,
     borderWidth: 2,
     borderColor: colors.medalGoldDark,
   },
-  /** 縄のドット（ビーズ）。pathSegment の上に等間隔で重ねる。 */
+  /** 縄のドット（ビーズ）。pathTrack の上に等間隔で重ねる。 */
   pathDot: {
     position: 'absolute',
-    top: (PATH_THICKNESS - PATH_DOT_SIZE) / 2 - 2,
+    left: '50%',
     width: PATH_DOT_SIZE,
     height: PATH_DOT_SIZE,
     marginLeft: -PATH_DOT_SIZE / 2,

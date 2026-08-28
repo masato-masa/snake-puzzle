@@ -15,6 +15,7 @@ import {
 
 import { DifficultyMeter } from '@/components/difficulty-meter';
 import { SkyBackground } from '@/components/sky-background';
+import { StageHub } from '@/components/stage-hub';
 import { StagePath } from '@/components/stage-path';
 import type { Level } from '@/engine';
 import { todayKey } from '@/levels/daily';
@@ -38,6 +39,7 @@ export default function StageSelectScreen() {
   const [size, setSize] = useState({ width: window.width, height: window.height });
   const { width, height } = size;
   const [page, setPage] = useState(0);
+  const [showStageList, setShowStageList] = useState(false);
   const [progress, setProgress] = useState<Progress>({});
   const [daily, setDaily] = useState<DailyState | null>(null);
   const [customLevels, setCustomLevels] = useState<Level[]>([]);
@@ -89,7 +91,21 @@ export default function StageSelectScreen() {
         onMomentumScrollEnd={onMomentumScrollEnd}
         style={styles.pager}>
         <View style={{ width, height }}>
-          <StagePath progress={progress} clearedCount={clearedCount} onSelect={goToLevel} />
+          {showStageList ? (
+            <StagePath
+              progress={progress}
+              clearedCount={clearedCount}
+              onSelect={goToLevel}
+              onClose={() => setShowStageList(false)}
+            />
+          ) : (
+            <StageHub
+              progress={progress}
+              clearedCount={clearedCount}
+              onPlay={goToLevel}
+              onOpenList={() => setShowStageList(true)}
+            />
+          )}
         </View>
 
         <View style={{ width, height }}>
