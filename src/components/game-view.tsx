@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
+import { AdInterstitial } from '@/components/ad-interstitial';
 import { Board } from '@/components/board';
 import { Celebration } from '@/components/celebration';
 import { ClearOverlay } from '@/components/clear-overlay';
@@ -58,6 +59,9 @@ type Phase = 'playing' | 'celebrating' | 'cleared';
 
 const CELEBRATION_MS = 1100;
 
+/** 無料で使えるヒントの回数。これを超えたら広告を見ると使い放題になる。 */
+const FREE_HINT_LIMIT = 3;
+
 export function GameView({
   level,
   theme = 'meadow',
@@ -79,6 +83,8 @@ export function GameView({
   const [phase, setPhase] = useState<Phase>('playing');
   const [hint, setHint] = useState<Move | null>(null);
   const [hintCount, setHintCount] = useState(0);
+  const [hintsUnlocked, setHintsUnlocked] = useState(false);
+  const [showHintAd, setShowHintAd] = useState(false);
   const [bump, setBump] = useState<{ snakeId: string; token: number } | null>(null);
   const [trail, setTrail] = useState<{
     snakeId: string;
@@ -177,9 +183,14 @@ export function GameView({
     setState((prev) => reset(prev));
   }, []);
 
-  /** ソルバーに今の盤面を解かせて、正解の 1 手だけ見せる。 */
+  /** ソルバーに今の盤面を解かせて、正解の 1 手だけ見せる。無料回数を使い切ったら広告を挟む。 */
   const handleHint = useCallback(() => {
     if (phaseRef.current !== 'playing') return;
+
+    if (hintCount >= FREE_HINT_LIMIT && !hintsUnlocked) {
+      setShowHintAd(true);
+      return;
+    }
 
     const probe: Level = { ...level, snakes: stateRef.current.snakes };
     const result = solve(probe, { maxMoves: 20, maxStates: 200_000 });
@@ -195,7 +206,7 @@ export function GameView({
     setHintCount((n) => n + 1);
     setNotice(null);
     feedbackSelect();
-  }, [level]);
+  }, [level, hintCount, hintsUnlocked]);
 
   /** ヘビが動ききってから演出に入る。 */
   const handleSettled = useCallback(() => {
@@ -296,8 +307,27 @@ export function GameView({
             onUndo={handleUndo}
             onReset={handleReset}
             onHint={handleHint}
+            hintLabel={
+              hintsUnlocked
+                ? 'ヒント'
+                : hintCount >= FREE_HINT_LIMIT
+                  ? '広告でヒント'
+                  : `ヒント (${FREE_HINT_LIMIT - hintCount})`
+            }
           />
         </View>
+
+        {showHintAd ? (
+          <AdInterstitial
+            title="ヒント使い放題"
+            body={'広告を見ると、このステージの間\nヒントが使い放題になります。'}
+            closeLabel="広告を見て解放"
+            onClose={() => {
+              setShowHintAd(false);
+              setHintsUnlocked(true);
+            }}
+          />
+        ) : null}
 
         {phase === 'cleared' ? (
           <ClearOverlay

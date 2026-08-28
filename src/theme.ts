@@ -6,17 +6,45 @@ export const colors = {
   skyTop: '#4FB6EF',
   skyMid: '#8FD6F7',
   skyBottom: '#D6F0FF',
-  cloud: 'rgba(255,255,255,0.85)',
+
+  desertTop: '#F5A85C',
+  desertMid: '#F7C787',
+  desertBottom: '#FCEACB',
+  dune: 'rgba(178, 108, 42, 0.3)',
 
   caveTop: '#6B4B2A',
   caveMid: '#A9784A',
   caveBottom: '#E4C79A',
   caveRock: 'rgba(60, 38, 18, 0.35)',
 
+  iceTop: '#8FD8F0',
+  iceMid: '#C9EEFA',
+  iceBottom: '#F3FCFF',
+  iceCrystal: 'rgba(255, 255, 255, 0.85)',
+
   nightTop: '#131A3E',
   nightMid: '#26306B',
   nightBottom: '#4A4E96',
   star: 'rgba(255, 250, 220, 0.95)',
+
+  medalGoldLight: '#FFF3C4',
+  medalGold: '#FFD65C',
+  medalGoldDark: '#C4841A',
+  medalSilverLight: '#FFFFFF',
+  medalSilver: '#E3E7EC',
+  medalSilverDark: '#8B96A3',
+  medalBronzeLight: '#F0C08C',
+  medalBronze: '#D79A5E',
+  medalBronzeDark: '#8A5326',
+
+  /** 「次に遊べるステージ」の宝石色。メダル（実績）とは別系統の色にして意味を分ける。 */
+  gemTealLight: '#BAF7F0',
+  gemTeal: '#33E0D1',
+  gemTealDark: '#0E8C82',
+
+  metalLight: '#C7CABF',
+  metal: '#9AA08F',
+  metalDark: '#5E6354',
 
   wood: '#B0762F',
   woodDark: '#6B4116',

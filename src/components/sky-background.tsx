@@ -1,8 +1,10 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 
 import type { WorldTheme } from '@/levels/levels';
 import { colors } from '@/theme';
+
+const MEADOW_BACKGROUND = require('@/assets/images/backgrounds/meadow-grass.png');
 
 const CLOUDS = [
   { top: '8%', left: '6%', size: 74, opacity: 0.9 },
@@ -24,9 +26,17 @@ const STARS = [
   { top: '88%', left: '58%', size: 3 },
 ] as const;
 
+/** 砂丘（雲の配置をそのまま流用し、色と形だけ変える）。 */
+const DUNES = CLOUDS;
+
+/** 氷のきらめき（星の配置をそのまま流用し、ひし形にして色を変える）。 */
+const CRYSTALS = STARS;
+
 const GRADIENTS: Record<WorldTheme, readonly [string, string, string]> = {
   meadow: [colors.skyTop, colors.skyMid, colors.skyBottom],
+  desert: [colors.desertTop, colors.desertMid, colors.desertBottom],
   cave: [colors.caveTop, colors.caveMid, colors.caveBottom],
+  ice: [colors.iceTop, colors.iceMid, colors.iceBottom],
   night: [colors.nightTop, colors.nightMid, colors.nightBottom],
 };
 
@@ -40,53 +50,36 @@ export function SkyBackground({
 }) {
   return (
     <View style={styles.root}>
-      <LinearGradient
-        colors={GRADIENTS[theme]}
-        locations={[0, 0.55, 1]}
-        style={StyleSheet.absoluteFill}
-      />
+      {theme === 'meadow' ? (
+        <Image
+          source={MEADOW_BACKGROUND}
+          resizeMode="cover"
+          style={[StyleSheet.absoluteFill, styles.meadowImage]}
+        />
+      ) : (
+        <LinearGradient
+          colors={GRADIENTS[theme]}
+          locations={[0, 0.55, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
 
-      {theme === 'meadow'
-        ? CLOUDS.map((cloud, i) => (
+      {theme === 'desert'
+        ? DUNES.map((dune, i) => (
             <View
               key={i}
               pointerEvents="none"
-              style={[
-                styles.cloud,
-                {
-                  top: cloud.top,
-                  left: cloud.left,
-                  width: cloud.size,
-                  height: cloud.size * 0.44,
-                  borderRadius: cloud.size * 0.22,
-                  opacity: cloud.opacity,
-                },
-              ]}>
-              <View
-                style={[
-                  styles.puff,
-                  {
-                    width: cloud.size * 0.5,
-                    height: cloud.size * 0.5,
-                    borderRadius: cloud.size * 0.25,
-                    left: cloud.size * 0.16,
-                    top: -cloud.size * 0.2,
-                  },
-                ]}
-              />
-              <View
-                style={[
-                  styles.puff,
-                  {
-                    width: cloud.size * 0.38,
-                    height: cloud.size * 0.38,
-                    borderRadius: cloud.size * 0.19,
-                    left: cloud.size * 0.5,
-                    top: -cloud.size * 0.12,
-                  },
-                ]}
-              />
-            </View>
+              style={{
+                position: 'absolute',
+                top: dune.top,
+                left: dune.left,
+                width: dune.size * 1.3,
+                height: dune.size * 0.5,
+                borderRadius: dune.size * 0.5,
+                backgroundColor: colors.dune,
+                opacity: dune.opacity,
+              }}
+            />
           ))
         : null}
 
@@ -105,6 +98,24 @@ export function SkyBackground({
                 backgroundColor: colors.caveRock,
                 opacity: 0.8,
                 transform: [{ rotate: i % 2 ? '6deg' : '-8deg' }],
+              }}
+            />
+          ))
+        : null}
+
+      {theme === 'ice'
+        ? CRYSTALS.map((crystal, i) => (
+            <View
+              key={i}
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                top: crystal.top,
+                left: crystal.left,
+                width: crystal.size * 1.4,
+                height: crystal.size * 1.4,
+                backgroundColor: colors.iceCrystal,
+                transform: [{ rotate: '45deg' }],
               }}
             />
           ))
@@ -137,12 +148,8 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  cloud: {
-    position: 'absolute',
-    backgroundColor: colors.cloud,
-  },
-  puff: {
-    position: 'absolute',
-    backgroundColor: colors.cloud,
+  meadowImage: {
+    width: '100%',
+    height: '100%',
   },
 });

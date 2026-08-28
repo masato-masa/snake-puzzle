@@ -1,26 +1,43 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 
 import { DifficultyMeter } from '@/components/difficulty-meter';
 import { SkyBackground } from '@/components/sky-background';
+import { StagePath } from '@/components/stage-path';
 import type { Level } from '@/engine';
 import { todayKey } from '@/levels/daily';
-import {
-  displayName,
-  isWorldUnlocked,
-  levelsOfWorld,
-  LEVELS,
-  UNLOCK_RATIO,
-  WORLDS,
-} from '@/levels/levels';
+import { LEVELS } from '@/levels/levels';
 import { currentStreak, loadDaily, type DailyState } from '@/storage/daily';
 import { deleteCustomLevel, loadCustomLevels } from '@/storage/custom-levels';
 import { loadProgress, type Progress } from '@/storage/progress';
 import { colors, ui } from '@/theme';
 
+const PAGE_COUNT = 3;
+
 export default function StageSelectScreen() {
   const router = useRouter();
+  const window = useWindowDimensions();
+  /**
+   * 静的書き出し（SSG）したページは、初回描画時点では実際のウィンドウサイズを
+   * 知らない。useWindowDimensions がハイドレーション後に正しい値へ更新される保証がなく、
+   * 0×0 のまま固まって画面が真っ白になることがあったため、実測レイアウト（onLayout）を
+   * 正として使い、useWindowDimensions は初期値の見積もりにとどめる。
+   */
+  const [size, setSize] = useState({ width: window.width, height: window.height });
+  const { width, height } = size;
+  const [page, setPage] = useState(0);
   const [progress, setProgress] = useState<Progress>({});
   const [daily, setDaily] = useState<DailyState | null>(null);
   const [customLevels, setCustomLevels] = useState<Level[]>([]);
@@ -49,197 +66,182 @@ export default function StageSelectScreen() {
   const streak = daily ? currentStreak(daily, today) : 0;
   const dailyDone = daily?.lastClearedDate === today;
 
+  const goToLevel = (levelId: string) =>
+    router.push({ pathname: '/game/[levelId]', params: { levelId } });
+
+  const onMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const index = Math.round(e.nativeEvent.contentOffset.x / width);
+    setPage(Math.max(0, Math.min(PAGE_COUNT - 1, index)));
+  };
+
+  const onRootLayout = (e: LayoutChangeEvent) => {
+    const { width: w, height: h } = e.nativeEvent.layout;
+    if (w > 0 && h > 0) setSize({ width: w, height: h });
+  };
+
   return (
-    <SkyBackground>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.lead}>
-          <Text style={styles.leadText}>
-            ヘビをつまんではらうと、ぶつかるまで一気にすすむ。{'\n'}
-            光るマスをぴったりうめて、ぜんぶ点灯させよう！
-          </Text>
+    <View style={styles.root} onLayout={onRootLayout}>
+      {width === 0 || height === 0 ? null : (
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={onMomentumScrollEnd}
+        style={styles.pager}>
+        <View style={{ width, height }}>
+          <StagePath progress={progress} clearedCount={clearedCount} onSelect={goToLevel} />
         </View>
 
-        <Pressable
-          onPress={() => router.push('/daily')}
-          style={({ pressed }) => [
-            styles.daily,
-            pressed && { marginTop: 3, borderBottomWidth: 2 },
-          ]}>
-          <View style={styles.dailyMain}>
-            <Text style={styles.dailyTitle}>きょうのもんだい</Text>
-            <Text style={styles.dailySub}>
-              {dailyDone ? 'クリアずみ！ もういちど遊べます' : '毎日あたらしい 1 面'}
-            </Text>
-          </View>
-          <View style={styles.streak}>
-            <Text style={styles.streakNumber}>{streak}</Text>
-            <Text style={styles.streakLabel}>日れんぞく</Text>
-          </View>
-        </Pressable>
-
-        <View style={styles.progressPill}>
-          <Text style={styles.progressText}>
-            クリア {clearedCount} / {LEVELS.length}
-          </Text>
-        </View>
-
-        {WORLDS.map((world, index) => {
-          const levels = levelsOfWorld(world);
-          const unlocked = isWorldUnlocked(index, isCleared);
-          const done = levels.filter((l) => isCleared(l.id)).length;
-          const needed = index === 0 ? 0 : Math.ceil(WORLDS[index - 1].levelIds.length * UNLOCK_RATIO);
-          const prevDone = index === 0 ? 0 : WORLDS[index - 1].levelIds.filter(isCleared).length;
-
-          return (
-            <View key={world.id} style={styles.world}>
-              <View style={styles.worldHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.worldName}>{world.name}</Text>
-                  <Text style={styles.worldSubtitle}>{world.subtitle}</Text>
-                </View>
-                <Text style={styles.worldCount}>
-                  {done} / {levels.length}
+        <View style={{ width, height }}>
+          <SkyBackground theme="night">
+            <View style={styles.pageContent}>
+              <View style={styles.lead}>
+                <Text style={styles.leadText}>
+                  ヘビをつまんではらうと、ぶつかるまで一気にすすむ。{'\n'}
+                  光るマスをぴったりうめて、ぜんぶ点灯させよう！
                 </Text>
               </View>
 
-              <View style={styles.bar}>
-                <View
-                  style={[
-                    styles.barFill,
-                    { width: `${Math.round((done / levels.length) * 100)}%` },
-                  ]}
-                />
-              </View>
-
-              {unlocked ? (
-                levels.map((level) => {
-                  const record = progress[level.id];
-                  return (
-                    <Pressable
-                      key={level.id}
-                      onPress={() =>
-                        router.push({
-                          pathname: '/game/[levelId]',
-                          params: { levelId: level.id },
-                        })
-                      }
-                      style={({ pressed }) => [
-                        styles.card,
-                        pressed && { marginTop: 3, borderBottomWidth: 2 },
-                      ]}>
-                      <View style={styles.cardHeader}>
-                        <Text style={styles.cardTitle}>{displayName(level)}</Text>
-                        {record?.cleared ? (
-                          <View style={styles.badge}>
-                            <Text style={styles.badgeText}>クリア</Text>
-                          </View>
-                        ) : null}
-                      </View>
-
-                      <View style={styles.metaRow}>
-                        <DifficultyMeter level={level.difficulty ?? 1} />
-                        <Text style={styles.cardMeta}>
-                          {level.rows}×{level.cols}・ヘビ {level.snakes.length} ひき・さいしょう{' '}
-                          {level.parMoves} 手
-                        </Text>
-                      </View>
-
-                      <Text style={styles.cardBest}>
-                        {record?.cleared
-                          ? `じこベスト ${record.bestMoves} 手`
-                          : 'まだクリアしてない'}
-                      </Text>
-                    </Pressable>
-                  );
-                })
-              ) : (
-                <View style={styles.locked}>
-                  <Text style={styles.lockedText}>
-                    まえの章をあと {Math.max(0, needed - prevDone)} 面クリアするとひらきます
+              <Pressable
+                onPress={() => router.push('/daily')}
+                style={({ pressed }) => [
+                  styles.daily,
+                  pressed && { marginTop: 3, borderBottomWidth: 2 },
+                ]}>
+                <View style={styles.dailyMain}>
+                  <Text style={styles.dailyTitle}>きょうのもんだい</Text>
+                  <Text style={styles.dailySub}>
+                    {dailyDone ? 'クリアずみ！ もういちど遊べます' : '毎日あたらしい 1 面'}
                   </Text>
                 </View>
-              )}
+                <View style={styles.streak}>
+                  <Text style={styles.streakNumber}>{streak}</Text>
+                  <Text style={styles.streakLabel}>日れんぞく</Text>
+                </View>
+              </Pressable>
             </View>
-          );
-        })}
+          </SkyBackground>
+        </View>
 
-        {customLevels.length > 0 ? (
-          <View style={styles.world}>
-            <View style={styles.worldHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.worldName}>マイステージ</Text>
-                <Text style={styles.worldSubtitle}>エディタで作った自分だけのステージ</Text>
+        <View style={{ width, height }}>
+          <SkyBackground theme="meadow">
+            <ScrollView
+              contentContainerStyle={styles.pageContent}
+              showsVerticalScrollIndicator={false}>
+              <View style={styles.world}>
+                <View style={styles.worldHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.worldName}>マイステージ</Text>
+                    <Text style={styles.worldSubtitle}>エディタで作った自分だけのステージ</Text>
+                  </View>
+                  <Text style={styles.worldCount}>{customLevels.length}</Text>
+                </View>
+
+                {customLevels.length === 0 ? (
+                  <Text style={styles.emptyText}>まだ作ったステージがありません</Text>
+                ) : (
+                  customLevels.map((level) => {
+                    const record = progress[level.id];
+                    return (
+                      <Pressable
+                        key={level.id}
+                        onPress={() => goToLevel(level.id)}
+                        style={({ pressed }) => [
+                          styles.card,
+                          pressed && { marginTop: 3, borderBottomWidth: 2 },
+                        ]}>
+                        <View style={styles.cardHeader}>
+                          <Text style={styles.cardTitle}>{level.name}</Text>
+                          {record?.cleared ? (
+                            <View style={styles.badge}>
+                              <Text style={styles.badgeText}>クリア</Text>
+                            </View>
+                          ) : null}
+                        </View>
+
+                        <View style={styles.metaRow}>
+                          <DifficultyMeter level={level.difficulty ?? 1} />
+                          <Text style={styles.cardMeta}>
+                            {level.rows}×{level.cols}・ヘビ {level.snakes.length} ひき
+                            {level.parMoves ? `・さいしょう ${level.parMoves} 手` : ''}
+                          </Text>
+                        </View>
+
+                        <View style={styles.customRow}>
+                          <Text style={styles.cardBest}>
+                            {record?.cleared
+                              ? `じこベスト ${record.bestMoves} 手`
+                              : 'まだクリアしてない'}
+                          </Text>
+                          <Pressable
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              deleteCustomLevel(level.id).then(setCustomLevels);
+                            }}
+                            hitSlop={8}>
+                            <Text style={styles.deleteLabel}>削除</Text>
+                          </Pressable>
+                        </View>
+                      </Pressable>
+                    );
+                  })
+                )}
               </View>
-              <Text style={styles.worldCount}>{customLevels.length}</Text>
-            </View>
 
-            {customLevels.map((level) => {
-              const record = progress[level.id];
-              return (
-                <Pressable
-                  key={level.id}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/game/[levelId]',
-                      params: { levelId: level.id },
-                    })
-                  }
-                  style={({ pressed }) => [
-                    styles.card,
-                    pressed && { marginTop: 3, borderBottomWidth: 2 },
-                  ]}>
-                  <View style={styles.cardHeader}>
-                    <Text style={styles.cardTitle}>{level.name}</Text>
-                    {record?.cleared ? (
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>クリア</Text>
-                      </View>
-                    ) : null}
-                  </View>
-
-                  <View style={styles.metaRow}>
-                    <DifficultyMeter level={level.difficulty ?? 1} />
-                    <Text style={styles.cardMeta}>
-                      {level.rows}×{level.cols}・ヘビ {level.snakes.length} ひき
-                      {level.parMoves ? `・さいしょう ${level.parMoves} 手` : ''}
-                    </Text>
-                  </View>
-
-                  <View style={styles.customRow}>
-                    <Text style={styles.cardBest}>
-                      {record?.cleared ? `じこベスト ${record.bestMoves} 手` : 'まだクリアしてない'}
-                    </Text>
-                    <Pressable
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        deleteCustomLevel(level.id).then(setCustomLevels);
-                      }}
-                      hitSlop={8}>
-                      <Text style={styles.deleteLabel}>削除</Text>
-                    </Pressable>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : null}
-
-        <Pressable style={styles.editorLink} onPress={() => router.push('/editor')}>
-          <Text style={styles.editorLabel}>ステージエディタ</Text>
-        </Pressable>
+              <Pressable style={styles.editorLink} onPress={() => router.push('/editor')}>
+                <Text style={styles.editorLabel}>ステージエディタ</Text>
+              </Pressable>
+            </ScrollView>
+          </SkyBackground>
+        </View>
       </ScrollView>
-    </SkyBackground>
+      )}
+
+      <View style={styles.dots} pointerEvents="none">
+        {Array.from({ length: PAGE_COUNT }).map((_, i) => (
+          <View key={i} style={[styles.dot, page === i && styles.dotActive]} />
+        ))}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
+  root: {
+    flex: 1,
+  },
+  pager: {
+    flex: 1,
+  },
+  pageContent: {
     padding: 18,
     paddingBottom: 48,
     gap: 12,
     maxWidth: 640,
     width: '100%',
     alignSelf: 'center',
+  },
+  dots: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  dot: {
+    width: 9,
+    height: 9,
+    borderRadius: 2,
+    transform: [{ rotate: '45deg' }],
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.15)',
+  },
+  dotActive: {
+    backgroundColor: colors.medalGold,
+    borderColor: colors.medalGoldDark,
   },
   lead: {
     backgroundColor: colors.panel,
@@ -304,25 +306,8 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
-  progressPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.accent,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: colors.accentDark,
-    paddingVertical: 5,
-    paddingHorizontal: 16,
-    ...ui.shadow,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  progressText: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '900',
-  },
   world: {
     gap: 10,
-    marginTop: 6,
   },
   worldHeader: {
     flexDirection: 'row',
@@ -348,28 +333,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
   },
-  bar: {
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.55)',
-    borderWidth: 2,
-    borderColor: colors.panelBorder,
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: '100%',
-    backgroundColor: colors.success,
-  },
-  locked: {
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    borderRadius: 14,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: colors.panelBorder,
-    padding: 16,
-    alignItems: 'center',
-  },
-  lockedText: {
+  emptyText: {
     color: colors.textMuted,
     fontSize: 13,
     fontWeight: '700',
