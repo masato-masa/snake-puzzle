@@ -3,29 +3,8 @@
  * 青空・木枠の盤面・シアンに光るパネル、という組み合わせで統一する。
  */
 export const colors = {
-  skyTop: '#4FB6EF',
-  skyMid: '#8FD6F7',
+  /** アプリ全体のフォールバック背景色（各章の背景は画像に差し替え済み）。 */
   skyBottom: '#D6F0FF',
-
-  desertTop: '#F5A85C',
-  desertMid: '#F7C787',
-  desertBottom: '#FCEACB',
-  dune: 'rgba(178, 108, 42, 0.3)',
-
-  caveTop: '#6B4B2A',
-  caveMid: '#A9784A',
-  caveBottom: '#E4C79A',
-  caveRock: 'rgba(60, 38, 18, 0.35)',
-
-  iceTop: '#8FD8F0',
-  iceMid: '#C9EEFA',
-  iceBottom: '#F3FCFF',
-  iceCrystal: 'rgba(255, 255, 255, 0.85)',
-
-  nightTop: '#131A3E',
-  nightMid: '#26306B',
-  nightBottom: '#4A4E96',
-  star: 'rgba(255, 250, 220, 0.95)',
 
   medalGoldLight: '#FFF3C4',
   medalGold: '#FFD65C',

@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -63,6 +64,16 @@ const ZIGZAG_AMPLITUDE = 46;
 const ZIGZAG_CYCLE = [0, 1, 0, -1];
 const offsetForIndex = (index: number) => ZIGZAG_CYCLE[index % ZIGZAG_CYCLE.length] * ZIGZAG_AMPLITUDE;
 const PATH_THICKNESS = 10;
+const PATH_DOT_SIZE = 14;
+/** ドット同士のおおよその間隔（px）。セグメントの長さに応じて個数を決める。 */
+const PATH_DOT_SPACING = 26;
+/** セグメントの長さから、均等に並ぶドットの左端位置（% 単位）を求める。 */
+const dotPositions = (segmentWidth: number) => {
+  const count = Math.max(1, Math.round(segmentWidth / PATH_DOT_SPACING));
+  return Array.from({ length: count }, (_, i) => ((i + 0.5) / count) * 100);
+};
+
+const WOOD_SIGN = require('@/assets/images/ui/wood-sign.png');
 
 /**
  * ヘッダーのおおよその高さ。listArea の onLayout は入れ子の横スクロール
@@ -156,16 +167,14 @@ export function StagePath({ progress, clearedCount, onSelect }: Props) {
   return (
     <SkyBackground theme={focusedWorld?.theme ?? 'meadow'}>
       <View style={styles.ribbonWrap}>
-        <View style={styles.ribbonRow}>
-          <View style={styles.flagLeft} />
-          <LinearGradient
-            colors={[colors.woodLight, colors.wood, colors.woodDark]}
-            locations={[0, 0.5, 1]}
-            style={styles.ribbon}>
-            <Text style={styles.ribbonEyebrow}>{focusedWorld?.name ?? ''}</Text>
-            <Text style={styles.ribbonTitle}>{displayName(focusedLevel)}</Text>
-          </LinearGradient>
-          <View style={styles.flagRight} />
+        <View style={styles.ribbon}>
+          <Image
+            source={WOOD_SIGN}
+            resizeMode="stretch"
+            style={[StyleSheet.absoluteFill, styles.ribbonImage]}
+          />
+          <Text style={styles.ribbonEyebrow}>{focusedWorld?.name ?? ''}</Text>
+          <Text style={styles.ribbonTitle}>{displayName(focusedLevel)}</Text>
         </View>
         <View style={styles.ribbonFooter}>
           <DifficultyMeter level={focusedLevel.difficulty ?? 1} showLabel={false} />
@@ -197,8 +206,11 @@ export function StagePath({ progress, clearedCount, onSelect }: Props) {
                     width: seg.width,
                     transform: [{ rotate: `${seg.rotateDeg}deg` }],
                   },
-                ]}
-              />
+                ]}>
+                {dotPositions(seg.width).map((leftPercent, j) => (
+                  <View key={j} style={[styles.pathDot, { left: `${leftPercent}%` }]} />
+                ))}
+              </View>
             ))}
           </View>
           {displayLevels.map((level, index) => (
@@ -280,14 +292,17 @@ const StageNode = memo(function StageNode({
           ]}
         />
       ) : null}
-      <LinearGradient
-        colors={gradients.rim}
-        style={[styles.nodeRim, { borderColor: MEDAL_BORDER[tone] }]}>
-        <LinearGradient colors={gradients.face} style={styles.nodeFace}>
-          <Text style={[styles.nodeText, { color: textColor }]}>{label}</Text>
+      <View style={styles.nodeWrap}>
+        <View pointerEvents="none" style={[styles.nodeBase, { backgroundColor: MEDAL_BORDER[tone] }]} />
+        <LinearGradient
+          colors={gradients.rim}
+          style={[styles.nodeRim, { borderColor: MEDAL_BORDER[tone] }]}>
+          <LinearGradient colors={gradients.face} style={styles.nodeFace}>
+            <Text style={[styles.nodeText, { color: textColor }]}>{label}</Text>
+          </LinearGradient>
+          <View style={styles.nodeShine} />
         </LinearGradient>
-        <View style={styles.nodeShine} />
-      </LinearGradient>
+      </View>
     </Animated.View>
   );
 
@@ -308,45 +323,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  ribbonRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-  },
   ribbon: {
-    borderWidth: 3,
-    borderColor: colors.woodDark,
-    borderBottomWidth: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 20,
+    position: 'relative',
+    paddingVertical: 10,
+    paddingHorizontal: 40,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 2,
     ...ui.shadow,
     shadowOffset: { width: 0, height: 3 },
   },
-  flagLeft: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 17,
-    borderBottomWidth: 17,
-    borderRightWidth: 14,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderRightColor: colors.woodDark,
-    marginTop: 3,
-  },
-  flagRight: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 17,
-    borderBottomWidth: 17,
-    borderLeftWidth: 14,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: colors.woodDark,
-    marginTop: 3,
+  ribbonImage: {
+    width: '100%',
+    height: '100%',
   },
   ribbonEyebrow: {
-    color: colors.woodLight,
+    color: colors.woodDark,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1,
@@ -381,6 +373,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.medalGoldDark,
   },
+  /** 縄のドット（ビーズ）。pathSegment の上に等間隔で重ねる。 */
+  pathDot: {
+    position: 'absolute',
+    top: (PATH_THICKNESS - PATH_DOT_SIZE) / 2 - 2,
+    width: PATH_DOT_SIZE,
+    height: PATH_DOT_SIZE,
+    marginLeft: -PATH_DOT_SIZE / 2,
+    borderRadius: PATH_DOT_SIZE / 2,
+    backgroundColor: colors.medalGoldDark,
+  },
   glow: {
     position: 'absolute',
     top: -4,
@@ -388,6 +390,19 @@ const styles = StyleSheet.create({
     right: -4,
     bottom: -4,
     borderRadius: (NODE_SIZE + 8) / 2,
+  },
+  nodeWrap: {
+    width: NODE_SIZE,
+    alignItems: 'center',
+    marginVertical: NODE_GAP / 2,
+  },
+  /** オーブの台座（下にのぞく四角い足）。オーブの陰に半分隠れるよう先に描く。 */
+  nodeBase: {
+    position: 'absolute',
+    top: NODE_SIZE * 0.78,
+    width: NODE_SIZE * 0.46,
+    height: NODE_SIZE * 0.32,
+    borderRadius: NODE_SIZE * 0.14,
   },
   nodeRim: {
     width: NODE_SIZE,
@@ -397,7 +412,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 5,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: NODE_GAP / 2,
     ...ui.shadow,
     shadowOffset: { width: 0, height: 2 },
   },
