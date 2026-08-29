@@ -1,34 +1,50 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 
 import { SkyBackground } from '@/components/sky-background';
-import { getLevelIndex, LEVELS, worldOf } from '@/levels/levels';
+import { displayName, getLevel, LEVELS, worldOf, type WorldTheme } from '@/levels/levels';
 import type { Progress } from '@/storage/progress';
 import { colors, ui } from '@/theme';
 
-const STAGE_TILE = require('@/assets/images/ui/stage-tile.png');
+const TILE_IMAGES: Record<WorldTheme, ImageSourcePropType> = {
+  meadow: require('@/assets/images/tiles/meadow.png'),
+  desert: require('@/assets/images/tiles/desert.png'),
+  cave: require('@/assets/images/tiles/cave.png'),
+  ice: require('@/assets/images/tiles/ice.png'),
+  night: require('@/assets/images/tiles/night.png'),
+};
+
+const WOOD_SIGN = require('@/assets/images/ui/wood-sign.png');
 
 type Props = {
   progress: Progress;
   clearedCount: number;
-  /** 「次に遊ぶステージ」を直接プレイする。 */
-  onPlay: (levelId: string) => void;
+  /** ホーム画面に反映されている、いま選ばれているステージ。 */
+  levelId: string;
+  /** プレイボタンを押したとき。 */
+  onPlay: () => void;
   /** タイルをタップしたときに、ステージ一覧をかぶせて開く。 */
   onOpenList: () => void;
 };
 
 /**
- * ステージ選択のトップ画面。中央の大きなタイルをタップすると一覧（StagePath）が
- * かぶさって開き、タイル下のボタンは「次に遊ぶステージ」を直接プレイする。
+ * ステージ選択のホーム画面。中央の大きなタイルをタップすると一覧（StagePath）が
+ * かぶさって開く。一覧でステージを選ぶとこの画面に反映されるだけで、
+ * 実際にプレイが始まるのは「プレイ」ボタンを押したときだけ。
  */
-export function StageHub({ progress, clearedCount, onPlay, onOpenList }: Props) {
-  const isCleared = (id: string) => !!progress[id]?.cleared;
-  const continueLevel = LEVELS.find((l) => !isCleared(l.id)) ?? LEVELS[LEVELS.length - 1];
-  const world = worldOf(continueLevel.id);
+export function StageHub({ progress, clearedCount, levelId, onPlay, onOpenList }: Props) {
+  const level = getLevel(levelId) ?? LEVELS[0];
+  const world = worldOf(level.id);
+  const theme = world?.theme ?? 'meadow';
 
   return (
-    <SkyBackground theme={world?.theme ?? 'meadow'}>
+    <SkyBackground theme={theme}>
       <View style={styles.root}>
+        <View style={styles.signWrap}>
+          <Image source={WOOD_SIGN} resizeMode="stretch" style={[StyleSheet.absoluteFill, styles.signImage]} />
+          <Text style={styles.signEyebrow}>{world?.name ?? ''}</Text>
+          <Text style={styles.signTitle}>{displayName(level)}</Text>
+        </View>
         <Text style={styles.progress}>
           クリア {clearedCount} / {LEVELS.length}
         </Text>
@@ -36,18 +52,17 @@ export function StageHub({ progress, clearedCount, onPlay, onOpenList }: Props) 
         <Pressable
           onPress={onOpenList}
           style={({ pressed }) => [styles.tileWrap, pressed && styles.tileWrapPressed]}>
-          <Image source={STAGE_TILE} resizeMode="cover" style={styles.tileImage} />
+          <Image source={TILE_IMAGES[theme]} resizeMode="contain" style={styles.tileImage} />
         </Pressable>
         <Text style={styles.hint}>タイルをタップしてステージをえらぶ</Text>
 
         <Pressable
-          onPress={() => onPlay(continueLevel.id)}
+          onPress={onPlay}
           style={({ pressed }) => [styles.playButton, pressed && styles.playButtonPressed]}>
           <LinearGradient
             colors={[colors.gemTealLight, colors.gemTealDark]}
             style={styles.playFace}>
-            <Text style={styles.playEyebrow}>{world?.name ?? ''}</Text>
-            <Text style={styles.playNumber}>{getLevelIndex(continueLevel.id) + 1}</Text>
+            <Text style={styles.playText}>プレイ</Text>
           </LinearGradient>
         </Pressable>
       </View>
@@ -60,12 +75,39 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
+    gap: 14,
     padding: 24,
   },
+  signWrap: {
+    position: 'relative',
+    paddingVertical: 10,
+    paddingHorizontal: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    ...ui.shadow,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  signImage: {
+    width: '100%',
+    height: '100%',
+  },
+  signEyebrow: {
+    color: colors.woodDark,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  signTitle: {
+    color: colors.textOnDark,
+    fontSize: 18,
+    fontWeight: '900',
+    textAlign: 'center',
+    textShadowColor: colors.woodDark,
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 0,
+  },
   progress: {
-    position: 'absolute',
-    top: 18,
     color: colors.textOnDark,
     fontSize: 13,
     fontWeight: '900',
@@ -77,15 +119,11 @@ const styles = StyleSheet.create({
     width: '78%',
     aspectRatio: 1,
     maxWidth: 320,
-    borderRadius: ui.radius,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: colors.panelBorder,
-    ...ui.shadow,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tileWrapPressed: {
-    marginTop: 3,
-    shadowOffset: { width: 0, height: 0 },
+    transform: [{ scale: 0.97 }],
   },
   tileImage: {
     width: '100%',
@@ -110,21 +148,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 3,
   },
   playFace: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
+    minWidth: 168,
+    paddingVertical: 16,
+    paddingHorizontal: 40,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  playEyebrow: {
+  playText: {
     color: colors.textOnDark,
-    fontSize: 10,
+    fontSize: 22,
     fontWeight: '900',
-  },
-  playNumber: {
-    color: colors.textOnDark,
-    fontSize: 32,
-    fontWeight: '900',
-    lineHeight: 36,
+    letterSpacing: 4,
   },
 });

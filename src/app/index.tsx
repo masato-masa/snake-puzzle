@@ -43,13 +43,18 @@ export default function StageSelectScreen() {
   const [progress, setProgress] = useState<Progress>({});
   const [daily, setDaily] = useState<DailyState | null>(null);
   const [customLevels, setCustomLevels] = useState<Level[]>([]);
+  /** ホーム画面のタイル下で選ばれているステージ。未選択なら「次に遊ぶステージ」を使う。 */
+  const [selectedLevelId, setSelectedLevelId] = useState<string | null>(null);
   const today = todayKey();
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       loadProgress().then((p) => {
-        if (active) setProgress(p);
+        if (!active) return;
+        setProgress(p);
+        // 選んでいたステージをクリア済みにしたら、自動選択（次に遊ぶステージ）に戻す
+        setSelectedLevelId((prev) => (prev && p[prev]?.cleared ? null : prev));
       });
       loadDaily().then((d) => {
         if (active) setDaily(d);
@@ -67,6 +72,8 @@ export default function StageSelectScreen() {
   const clearedCount = LEVELS.filter((l) => isCleared(l.id)).length;
   const streak = daily ? currentStreak(daily, today) : 0;
   const dailyDone = daily?.lastClearedDate === today;
+  const continueLevel = LEVELS.find((l) => !isCleared(l.id)) ?? LEVELS[LEVELS.length - 1];
+  const activeLevelId = selectedLevelId ?? continueLevel.id;
 
   const goToLevel = (levelId: string) =>
     router.push({ pathname: '/game/[levelId]', params: { levelId } });
@@ -95,14 +102,18 @@ export default function StageSelectScreen() {
             <StagePath
               progress={progress}
               clearedCount={clearedCount}
-              onSelect={goToLevel}
+              onSelect={(levelId) => {
+                setSelectedLevelId(levelId);
+                setShowStageList(false);
+              }}
               onClose={() => setShowStageList(false)}
             />
           ) : (
             <StageHub
               progress={progress}
               clearedCount={clearedCount}
-              onPlay={goToLevel}
+              levelId={activeLevelId}
+              onPlay={() => goToLevel(activeLevelId)}
               onOpenList={() => setShowStageList(true)}
             />
           )}

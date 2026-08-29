@@ -48,6 +48,8 @@ type Piece = {
   size: number;
   radius: number;
   isHead: boolean;
+  /** 体節どうしをつなぐ四角（丸い体節そのものではない）。 */
+  isLink: boolean;
 };
 
 const facingOf = (body: Pos[]): Facing => {
@@ -115,6 +117,7 @@ const buildPieces = (frames: Frames, cell: number): Piece[] => {
       size,
       radius: size * 0.3,
       isHead: false,
+      isLink: true,
     });
   }
 
@@ -126,6 +129,7 @@ const buildPieces = (frames: Frames, cell: number): Piece[] => {
       size,
       radius: size / 2,
       isHead: i === 0,
+      isLink: false,
     });
   }
 
@@ -357,10 +361,31 @@ export function SnakeView({
               skin={skin}
               highlighted={showSelection && selected}
             />
-          ) : null}
+          ) : piece.isLink ? null : (
+            <SegmentShine size={piece.size} skin={skin} />
+          )}
         </Animated.View>
       ))}
     </>
+  );
+}
+
+/** 頭以外の体節にもつやを乗せて、粒ぞろいのぷるんとした見た目にする。 */
+function SegmentShine({ size, skin }: { size: number; skin: SnakeSkin }) {
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: size * 0.22,
+        top: size * 0.14,
+        width: size * 0.32,
+        height: size * 0.2,
+        borderRadius: size * 0.16,
+        backgroundColor: skin.light,
+        opacity: 0.45,
+      }}
+    />
   );
 }
 
