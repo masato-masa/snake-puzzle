@@ -148,6 +148,13 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
   /** 指がまだ触れているあいだ（ドラッグ中）は、遅い動きでもスナップしない。 */
   const isDraggingRef = useRef(false);
   const lastScrollRef = useRef<{ y: number; t: number } | null>(null);
+  /**
+   * スナップ用の scrollTo を実行中は、そのアニメーションの動き自体を
+   * 「まだ遅い＝もう一度スナップが必要」と誤検知して連打しないようにする。
+   * 連打するとネイティブの慣性と競合してガタつく。
+   */
+  const isSnappingRef = useRef(false);
+  const snapClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
     const measured = e.nativeEvent.layout.height;
@@ -165,7 +172,16 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
     (offsetY: number) => {
       const raw = Math.round((offsetY - nodeGap / 2 - CENTER_OFFSET) / nodeHeight);
       const clamped = Math.max(0, Math.min(totalSlots - 1, raw));
-      scrollRef.current?.scrollTo({ y: scrollYForSlot(clamped), animated: true });
+      const target = scrollYForSlot(clamped);
+      // 既にほぼ目的地なら、アニメーションを起こさない（無音の再スナップで
+      // ネイティブの慣性と競合させない）。
+      if (Math.abs(offsetY - target) < 1) return;
+      isSnappingRef.current = true;
+      if (snapClearTimer.current) clearTimeout(snapClearTimer.current);
+      snapClearTimer.current = setTimeout(() => {
+        isSnappingRef.current = false;
+      }, 400);
+      scrollRef.current?.scrollTo({ y: target, animated: true });
     },
     [nodeGap, nodeHeight, scrollYForSlot, totalSlots],
   );
@@ -182,7 +198,7 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
       const now = Date.now();
       const last = lastScrollRef.current;
       lastScrollRef.current = { y, t: now };
-      if (!isDraggingRef.current && last) {
+      if (!isDraggingRef.current && !isSnappingRef.current && last) {
         const dt = now - last.t;
         const velocity = dt > 0 ? Math.abs(y - last.y) / dt : 0;
         if (velocity < SNAP_VELOCITY_THRESHOLD) {
@@ -197,6 +213,8 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
 
       // 上の速度判定が発火しなかった場合の保険。スクロールイベントが一定時間
       // 途切れたら（＝止まった、または onMomentumScrollEnd 等が発火しない環境でも）スナップする。
+      // スナップ中はそのアニメーション自身のイベントで再スケジュールしない。
+      if (isSnappingRef.current) return;
       if (snapTimer.current) clearTimeout(snapTimer.current);
       snapTimer.current = setTimeout(() => snapToNearest(y), SNAP_DEBOUNCE_MS);
     },
@@ -205,15 +223,21 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
 
   const onScrollBeginDrag = useCallback(() => {
     isDraggingRef.current = true;
+    isSnappingRef.current = false;
     lastScrollRef.current = null;
     if (snapTimer.current) {
       clearTimeout(snapTimer.current);
       snapTimer.current = null;
     }
+    if (snapClearTimer.current) {
+      clearTimeout(snapClearTimer.current);
+      snapClearTimer.current = null;
+    }
   }, []);
 
   useEffect(() => () => {
     if (snapTimer.current) clearTimeout(snapTimer.current);
+    if (snapClearTimer.current) clearTimeout(snapClearTimer.current);
   }, []);
 
   const onScroll = useMemo(
@@ -489,6 +513,7 @@ const styles = StyleSheet.create({
     height: NODE_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   nodeImage: {
     width: '100%',
