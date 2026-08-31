@@ -12,6 +12,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type ScrollView,
+  type ViewStyle,
 } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
@@ -60,12 +61,6 @@ const MAX_FOCUS_SCALE = 3.2;
 /** 中央のノードが最大まで拡大しても隣のノードと重ならないための余白。 */
 const MIN_GAP = 40;
 const GAP_MARGIN = 16;
-/** 「中央」を画面の真ん中よりこれだけ上にずらす（見た目の重心が下寄りに感じるため）。 */
-const CENTER_OFFSET = 48;
-/** 慣性が止まったとみなすまでの無操作時間。onMomentumScrollEnd が web で発火しないことがあるための保険。 */
-const SNAP_DEBOUNCE_MS = 120;
-/** 指を離した後、この速さ（px/ms）を下回ったら「止まるのを待たずに」スナップを始める。 */
-const SNAP_VELOCITY_THRESHOLD = 0.15;
 
 const WOOD_SIGN = require('@/assets/images/ui/wood-sign.png');
 
@@ -87,12 +82,21 @@ type Props = {
 };
 
 /**
- * ステージ一覧。100 面を一直線の道として縦に並べ、画面中央（よりやや上）に来た
- * ステージだけホーム画面のタイルくらいの大きさまで拡大する（コンベア風）。指を離して
- * スクロールの慣性が止まったら、一番近いステージの中心がその位置にぴったり合うよう
- * 自動でスナップする。表示は 100 → 1 の順（下ほど古い・一番下がステージ1）で、
- * 開いた瞬間は「次に遊ぶステージ」が中央に来るようにする。一番上（ステージ100より先）
- * には「？」の空きノードを置き、続きが控えていることを示す。
+ * ステージ一覧。100 面を一直線の道として縦に並べ、画面中央に来たステージだけ
+ * ホーム画面のタイルくらいの大きさまで拡大する（コンベア風）。
+ *
+ * 中央への吸着（スナップ）は自前の JS では行わず、CSS の scroll-snap
+ * （scrollSnapType: 'y mandatory' + 各ノードの scrollSnapAlign: 'center'）に
+ * 任せている。指でのドラッグ中はブラウザの通常のスクロールと同じく指の動きに
+ * 素直に追従し、指を離した瞬間（慣性の有無に関わらず）だけブラウザが自然に
+ * 一番近いノードの中心へ収束させる。JS 側で scrollTo を撃って割り込むと、
+ * ネイティブの慣性と競合してガタつく／ドラッグ中の動きが不自然になる
+ * （実際に自前実装で両方の不具合が起きたため、CSS 側に一本化した）。
+ *
+ * 表示は 100 → 1 の順（下ほど古い・一番下がステージ1）で、開いた瞬間は
+ * 「次に遊ぶステージ」（または渡された initialLevelId）が中央に来るようにする。
+ * 一番上（ステージ100より先）には「？」の空きノードを置き、続きが控えている
+ * ことを示す。
  * 各ノードは章のテーマ画像（TILE_IMAGES）を、ホーム画面のタイルと同じく背景なしで
  * 切り抜いたまま表示し、右下の番号バッジの色でクリア状況（金/銀/銅/現在地/ロック）を示す。
  * タイル画面（StageHub）からかぶせて開く形で使うため、onClose を渡すと戻るボタンが出る。
@@ -126,14 +130,11 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
   /** 中央からこの距離（px）離れると等倍まで戻る。隣のノードでは等倍になっているようにする。 */
   const scaleRange = nodeHeight * 0.9;
   /**
-   * スロット slot の中心を「中央」（画面中央より CENTER_OFFSET 上）に合わせるための scrollTop。
-   * ノードは marginVertical: nodeGap/2 で並ぶので、先頭スロットの中心はコンテンツ原点から
-   * nodeGap/2 だけ内側にある（nodeHeight/2 ではない）。
+   * スロット slot の中心を画面中央に合わせるための scrollTop。
+   * ノードは marginVertical: nodeGap/2 で並ぶので、先頭スロットの中心は
+   * コンテンツ原点から nodeGap/2 だけ内側にある（nodeHeight/2 ではない）。
    */
-  const scrollYForSlot = useCallback(
-    (slot: number) => slot * nodeHeight + nodeGap / 2 + CENTER_OFFSET,
-    [nodeHeight, nodeGap],
-  );
+  const scrollYForSlot = useCallback((slot: number) => slot * nodeHeight + nodeGap / 2, [nodeHeight, nodeGap]);
 
   // onLayout が(入れ子の横スクロールページの中で)発火しなくても機能するよう、
   // windowHeight からの見積もりを初期値にしておく。onLayout が発火すればより正確な値に補正する。
@@ -144,17 +145,6 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
   const scrollRef = useRef<ScrollView>(null);
   const scrolledOnce = useRef(false);
   const scrollY = useRef(new Animated.Value(0)).current;
-  const snapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** 指がまだ触れているあいだ（ドラッグ中）は、遅い動きでもスナップしない。 */
-  const isDraggingRef = useRef(false);
-  const lastScrollRef = useRef<{ y: number; t: number } | null>(null);
-  /**
-   * スナップ用の scrollTo を実行中は、そのアニメーションの動き自体を
-   * 「まだ遅い＝もう一度スナップが必要」と誤検知して連打しないようにする。
-   * 連打するとネイティブの慣性と競合してガタつく。
-   */
-  const isSnappingRef = useRef(false);
-  const snapClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
     const measured = e.nativeEvent.layout.height;
@@ -168,77 +158,17 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
     scrollRef.current?.scrollTo({ y: scrollYForSlot(initialSlot), animated: false });
   }, [containerHeight, initialSlot, scrollYForSlot]);
 
-  const snapToNearest = useCallback(
-    (offsetY: number) => {
-      const raw = Math.round((offsetY - nodeGap / 2 - CENTER_OFFSET) / nodeHeight);
-      const clamped = Math.max(0, Math.min(totalSlots - 1, raw));
-      const target = scrollYForSlot(clamped);
-      // 既にほぼ目的地なら、アニメーションを起こさない（無音の再スナップで
-      // ネイティブの慣性と競合させない）。
-      if (Math.abs(offsetY - target) < 1) return;
-      isSnappingRef.current = true;
-      if (snapClearTimer.current) clearTimeout(snapClearTimer.current);
-      snapClearTimer.current = setTimeout(() => {
-        isSnappingRef.current = false;
-      }, 400);
-      scrollRef.current?.scrollTo({ y: target, animated: true });
-    },
-    [nodeGap, nodeHeight, scrollYForSlot, totalSlots],
-  );
-
+  // ヘッダー（木の看板）に出す「今どのステージが中央にいるか」の追跡だけ行う。
+  // 実際の吸着先は CSS の scroll-snap に任せているので、ここでは scrollTo を呼ばない。
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const y = e.nativeEvent.contentOffset.y;
-      const slot = Math.round((y - nodeGap / 2 - CENTER_OFFSET) / nodeHeight);
+      const slot = Math.round((y - nodeGap / 2) / nodeHeight);
       const clamped = Math.max(0, Math.min(totalSlots - 1, slot));
       setFocusedSlot((prev) => (prev === clamped ? prev : clamped));
-
-      // 指を離した後（ドラッグ中でない）、速さが閾値を下回ったら、慣性が止まりきるのを
-      // 待たずにその場でスナップを始める。停止を待つより体感が速い。
-      const now = Date.now();
-      const last = lastScrollRef.current;
-      lastScrollRef.current = { y, t: now };
-      if (!isDraggingRef.current && !isSnappingRef.current && last) {
-        const dt = now - last.t;
-        const velocity = dt > 0 ? Math.abs(y - last.y) / dt : 0;
-        if (velocity < SNAP_VELOCITY_THRESHOLD) {
-          if (snapTimer.current) {
-            clearTimeout(snapTimer.current);
-            snapTimer.current = null;
-          }
-          snapToNearest(y);
-          return;
-        }
-      }
-
-      // 上の速度判定が発火しなかった場合の保険。スクロールイベントが一定時間
-      // 途切れたら（＝止まった、または onMomentumScrollEnd 等が発火しない環境でも）スナップする。
-      // スナップ中はそのアニメーション自身のイベントで再スケジュールしない。
-      if (isSnappingRef.current) return;
-      if (snapTimer.current) clearTimeout(snapTimer.current);
-      snapTimer.current = setTimeout(() => snapToNearest(y), SNAP_DEBOUNCE_MS);
     },
-    [nodeGap, nodeHeight, snapToNearest, totalSlots],
+    [nodeGap, nodeHeight, totalSlots],
   );
-
-  const onScrollBeginDrag = useCallback(() => {
-    isDraggingRef.current = true;
-    isSnappingRef.current = false;
-    lastScrollRef.current = null;
-    if (snapTimer.current) {
-      clearTimeout(snapTimer.current);
-      snapTimer.current = null;
-    }
-    if (snapClearTimer.current) {
-      clearTimeout(snapClearTimer.current);
-      snapClearTimer.current = null;
-    }
-  }, []);
-
-  useEffect(() => () => {
-    if (snapTimer.current) clearTimeout(snapTimer.current);
-    if (snapClearTimer.current) clearTimeout(snapClearTimer.current);
-  }, []);
 
   const onScroll = useMemo(
     () =>
@@ -249,25 +179,9 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
     [scrollY, handleScroll],
   );
 
-  // 対応環境では onMomentumScrollEnd / onScrollEndDrag のほうが早く確定するので、
-  // 発火したときは即座にスナップし、保留中のデバウンスは打ち消す。
-  const onScrollSettled = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      isDraggingRef.current = false;
-      if (snapTimer.current) {
-        clearTimeout(snapTimer.current);
-        snapTimer.current = null;
-      }
-      snapToNearest(e.nativeEvent.contentOffset.y);
-    },
-    [snapToNearest],
-  );
-
   const focusedLevel = displayLevels[focusedSlot - 1];
   const focusedWorld = focusedLevel ? worldOf(focusedLevel.id) : undefined;
   const padding = containerHeight > 0 ? Math.max(0, containerHeight / 2 - NODE_SIZE / 2) : 0;
-  // CENTER_OFFSET ぶん上にずらしているので、最後のスロットまで届くよう下側の余白を追加で確保する。
-  const paddingBottom = padding + CENTER_OFFSET;
 
   return (
     <SkyBackground theme={focusedWorld?.theme ?? 'meadow'}>
@@ -296,10 +210,8 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
           showsVerticalScrollIndicator={false}
           scrollEventThrottle={16}
           onScroll={onScroll}
-          onScrollBeginDrag={onScrollBeginDrag}
-          onMomentumScrollEnd={onScrollSettled}
-          onScrollEndDrag={onScrollSettled}
-          contentContainerStyle={{ paddingTop: padding, paddingBottom, alignItems: 'center' }}>
+          style={scrollSnapStyle}
+          contentContainerStyle={{ paddingVertical: padding, alignItems: 'center' }}>
           <MysteryNode
             targetScrollY={scrollYForSlot(0)}
             focusScale={focusScale}
@@ -349,7 +261,7 @@ const MysteryNode = memo(function MysteryNode({
   });
 
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
+    <Animated.View style={[snapChildStyle, { transform: [{ scale }] }]}>
       <View style={[styles.nodeWrap, { marginVertical: verticalMargin }]}>
         <View style={styles.mysteryPlate}>
           <Text style={styles.mysteryText}>？</Text>
@@ -405,7 +317,7 @@ const StageNode = memo(function StageNode({
   const shineScale = shine.interpolate({ inputRange: [0, 1], outputRange: [1, 1.35] });
   const shineOpacity = shine.interpolate({ inputRange: [0, 1], outputRange: [0.7, 0] });
 
-  // スクロール位置がこのノードの中心と「中央」に一致するほど大きくする
+  // スクロール位置がこのノードの中心と画面中央に一致するほど大きくする
   const scale = scrollY.interpolate({
     inputRange: [targetScrollY - scaleRange, targetScrollY, targetScrollY + scaleRange],
     outputRange: [1, focusScale, 1],
@@ -413,7 +325,7 @@ const StageNode = memo(function StageNode({
   });
 
   const content = (
-    <Animated.View style={{ transform: [{ scale }] }}>
+    <Animated.View style={[snapChildStyle, { transform: [{ scale }] }]}>
       <View style={[styles.nodeWrap, { marginVertical: verticalMargin }]}>
         <View style={styles.nodePlate}>
           <Image
@@ -445,11 +357,22 @@ const StageNode = memo(function StageNode({
   if (!unlocked) return content;
 
   return (
-    <Pressable onPress={onPress} hitSlop={6}>
+    // scroll-snap-align はスクロールコンテナの直接の子でないと効かないため、
+    // Pressable でラップされるこちらの分岐では Pressable 自身に付け直す
+    // （中の Animated.View に付いている分は直接の子ではなくなるので無視される）。
+    <Pressable onPress={onPress} hitSlop={6} style={snapChildStyle}>
       {content}
     </Pressable>
   );
 });
+
+/**
+ * scroll-snap-* は RN の ViewStyle 型に無い web 専用 CSS プロパティなので、
+ * StyleSheet.create の中には置かず（型が汚染される）、素のオブジェクトとして
+ * 個別にキャストする。RN Web は未知のキーもそのまま CSS として通す。
+ */
+const scrollSnapStyle = { scrollSnapType: 'y mandatory' } as unknown as ViewStyle;
+const snapChildStyle = { scrollSnapAlign: 'center' } as unknown as ViewStyle;
 
 const styles = StyleSheet.create({
   ribbonWrap: {
@@ -502,6 +425,7 @@ const styles = StyleSheet.create({
   listArea: {
     flex: 1,
   },
+  /** ブラウザのネイティブ scroll-snap に「縦方向・必ず吸着」を指示する。 */
   nodeWrap: {
     position: 'relative',
     width: NODE_SIZE,
