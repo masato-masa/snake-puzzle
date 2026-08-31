@@ -20,6 +20,7 @@ import { BackButton } from '@/components/back-button';
 import { starCount } from '@/components/clear-overlay';
 import { DifficultyMeter } from '@/components/difficulty-meter';
 import { SkyBackground } from '@/components/sky-background';
+import { WoodSign } from '@/components/wood-sign';
 import type { Level } from '@/engine';
 import { displayName, getLevelIndex, isLevelUnlocked, LEVELS, worldOf, type WorldTheme } from '@/levels/levels';
 import { TILE_IMAGES } from '@/lib/tile-images';
@@ -62,8 +63,6 @@ const MAX_FOCUS_SCALE = 3.2;
 /** 中央のノードが最大まで拡大しても隣のノードと重ならないための余白。 */
 const MIN_GAP = 40;
 const GAP_MARGIN = 16;
-
-const WOOD_SIGN = require('@/assets/images/ui/wood-sign.png');
 
 /**
  * ヘッダーのおおよその高さ。listArea の onLayout は入れ子の横スクロール
@@ -200,15 +199,10 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
     <SkyBackground theme={focusedWorld?.theme ?? 'meadow'}>
       <View style={styles.ribbonWrap}>
         {onClose ? <BackButton onPress={onClose} /> : null}
-        <View style={styles.ribbon}>
-          <Image
-            source={WOOD_SIGN}
-            resizeMode="stretch"
-            style={[StyleSheet.absoluteFill, styles.ribbonImage]}
-          />
-          <Text style={styles.ribbonEyebrow}>{focusedLevel ? (focusedWorld?.name ?? '') : 'つづきは近日'}</Text>
-          <Text style={styles.ribbonTitle}>{focusedLevel ? displayName(focusedLevel) : '？？？'}</Text>
-        </View>
+        <WoodSign
+          eyebrow={focusedLevel ? (focusedWorld?.name ?? '') : 'つづきは近日'}
+          title={focusedLevel ? displayName(focusedLevel) : '？？？'}
+        />
         <View style={styles.ribbonFooter}>
           <DifficultyMeter level={focusedLevel?.difficulty ?? 1} showLabel={false} />
           <Text style={styles.headerProgress}>
@@ -405,35 +399,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     alignItems: 'center',
     gap: 8,
-  },
-  ribbon: {
-    position: 'relative',
-    paddingVertical: 10,
-    paddingHorizontal: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    ...ui.shadow,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  ribbonImage: {
-    width: '100%',
-    height: '100%',
-  },
-  ribbonEyebrow: {
-    color: colors.woodDark,
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  ribbonTitle: {
-    color: colors.textOnDark,
-    fontSize: 18,
-    fontWeight: '900',
-    textAlign: 'center',
-    textShadowColor: colors.woodDark,
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 0,
   },
   ribbonFooter: {
     flexDirection: 'row',

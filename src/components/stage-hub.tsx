@@ -1,13 +1,13 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { DifficultyMeter } from '@/components/difficulty-meter';
 import { SkyBackground } from '@/components/sky-background';
+import { WoodSign } from '@/components/wood-sign';
 import { displayName, getLevel, LEVELS, worldOf } from '@/levels/levels';
 import { TILE_IMAGES } from '@/lib/tile-images';
 import type { Progress } from '@/storage/progress';
 import { colors, ui } from '@/theme';
-
-const WOOD_SIGN = require('@/assets/images/ui/wood-sign.png');
 
 type Props = {
   progress: Progress;
@@ -48,14 +48,13 @@ export function StageHub({
   return (
     <SkyBackground theme={theme}>
       <View style={styles.root}>
-        <View style={styles.signWrap}>
-          <Image source={WOOD_SIGN} resizeMode="stretch" style={[StyleSheet.absoluteFill, styles.signImage]} />
-          <Text style={styles.signEyebrow}>{world?.name ?? ''}</Text>
-          <Text style={styles.signTitle}>{displayName(level)}</Text>
+        <WoodSign eyebrow={world?.name ?? ''} title={displayName(level)} />
+        <View style={styles.metaRow}>
+          <DifficultyMeter level={level.difficulty ?? 1} showLabel={false} />
+          <Text style={styles.progress}>
+            クリア {clearedCount} / {LEVELS.length}
+          </Text>
         </View>
-        <Text style={styles.progress}>
-          クリア {clearedCount} / {LEVELS.length}
-        </Text>
 
         <Pressable
           onPress={onOpenList}
@@ -104,34 +103,10 @@ const styles = StyleSheet.create({
     gap: 14,
     padding: 24,
   },
-  signWrap: {
-    position: 'relative',
-    paddingVertical: 10,
-    paddingHorizontal: 36,
+  metaRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    ...ui.shadow,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  signImage: {
-    width: '100%',
-    height: '100%',
-  },
-  signEyebrow: {
-    color: colors.woodDark,
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  signTitle: {
-    color: colors.textOnDark,
-    fontSize: 18,
-    fontWeight: '900',
-    textAlign: 'center',
-    textShadowColor: colors.woodDark,
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 0,
+    gap: 10,
   },
   progress: {
     color: colors.textOnDark,

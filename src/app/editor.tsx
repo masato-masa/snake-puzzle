@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { Board } from '@/components/board';
@@ -395,6 +395,10 @@ export default function EditorScreen() {
       <Text selectable style={styles.json}>
         {json}
       </Text>
+
+      <Pressable style={styles.testLink} onPress={() => router.push('/test')}>
+        <Text style={styles.testLinkLabel}>テストツール（全ステージ開放など）</Text>
+      </Pressable>
       </ScrollView>
     </SkyBackground>
   );
@@ -519,5 +523,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'monospace',
     padding: 10,
+  },
+  testLink: {
+    marginTop: 10,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  testLinkLabel: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
 });

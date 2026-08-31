@@ -9,6 +9,7 @@ import { ClearOverlay } from '@/components/clear-overlay';
 import { HUD } from '@/components/hud';
 import { SkyBackground } from '@/components/sky-background';
 import { moveDurationFor } from '@/components/snake-view';
+import { WoodSign } from '@/components/wood-sign';
 import {
   coveredTargetCount,
   createGameState,
@@ -22,6 +23,7 @@ import {
   type Move,
   type Pos,
 } from '@/engine';
+import { displayName, worldOf } from '@/levels/levels';
 import type { WorldTheme } from '@/levels/levels';
 import {
   feedbackBlocked,
@@ -274,9 +276,14 @@ export function GameView({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handleDirection, handleUndo, handleReset, handleHint, level.snakes, selectedId]);
 
+  const world = worldOf(level.id);
+
   return (
     <SkyBackground theme={theme}>
-      <BackButton onPress={onBack} />
+      <View style={styles.header}>
+        <BackButton onPress={onBack} />
+        <WoodSign eyebrow={world?.name ?? ''} title={displayName(level)} />
+      </View>
       <View style={styles.screen}>
         <View style={styles.boardArea} onLayout={onBoardAreaLayout}>
           {area.width > 8 && area.height > 8 ? (
@@ -354,6 +361,13 @@ export function GameView({
 }
 
 const styles = StyleSheet.create({
+  header: {
+    position: 'relative',
+    paddingTop: 18,
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    alignItems: 'center',
+  },
   screen: {
     flex: 1,
     alignItems: 'stretch',
