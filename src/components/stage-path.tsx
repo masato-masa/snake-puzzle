@@ -32,7 +32,7 @@ const medalFor = (level: Level, progress: Progress): Medal | null => {
   return stars >= 3 ? 'gold' : stars === 2 ? 'silver' : 'bronze';
 };
 
-/** ふち・番号バッジの色。 */
+/** 番号バッジの色。ふちを使わなくなったので、クリア状況はこのバッジの色だけで示す。 */
 const MEDAL_BORDER: Record<'locked' | 'current' | Medal, string> = {
   locked: colors.metalDark,
   current: colors.gemTealDark,
@@ -43,13 +43,12 @@ const MEDAL_BORDER: Record<'locked' | 'current' | Medal, string> = {
 
 /** 中央から外れているときの、素の大きさ。 */
 const NODE_SIZE = 100;
-const NODE_GAP = 56;
-const NODE_HEIGHT = NODE_SIZE + NODE_GAP;
-/** 中央からこの距離（px）離れると等倍まで戻る。狭めにして「中央だけ大きい」感じを出す。 */
-const SCALE_RANGE = NODE_HEIGHT * 1.15;
 /** 中央に来たときの拡大率の下限・上限。実際の値は画面幅からホーム画面のタイルに近づける。 */
 const MIN_FOCUS_SCALE = 1.8;
 const MAX_FOCUS_SCALE = 3.2;
+/** 中央のノードが最大まで拡大しても隣のノードと重ならないための余白。 */
+const MIN_GAP = 40;
+const GAP_MARGIN = 16;
 const PATH_THICKNESS = 10;
 /** 慣性が止まったとみなすまでの無操作時間。onMomentumScrollEnd が web で発火しないことがあるための保険。 */
 const SNAP_DEBOUNCE_MS = 120;
@@ -62,13 +61,6 @@ const WOOD_SIGN = require('@/assets/images/ui/wood-sign.png');
  * （onLayout が発火すれば、そこでより正確な値に補正する）。
  */
 const HEADER_HEIGHT_ESTIMATE = 130;
-
-/**
- * ステージ i の中心を画面中央に合わせるための scrollTop。
- * ノードは marginVertical: NODE_GAP/2 で並ぶので、先頭ノードの中心は
- * コンテンツ原点から NODE_GAP/2 だけ内側にある（NODE_HEIGHT/2 ではない）。
- */
-const scrollYForIndex = (index: number) => index * NODE_HEIGHT + NODE_GAP / 2;
 
 type Props = {
   progress: Progress;
@@ -84,9 +76,9 @@ type Props = {
  * 慣性が止まったら、一番近いステージの中心が画面中央にぴったり合うよう自動でスナップする。
  * 表示は 100 → 1 の順（下ほど古い・一番下がステージ1）で、開いた瞬間は
  * 「次に遊ぶステージ」が中央に来るようにする。「次に遊ぶステージ」より先（まだ見えていない
- * 未来のステージ）へはスクロールでスナップできない。
- * 各ノードは章のテーマ画像（TILE_IMAGES）を、ホーム画面のタイルと同じ立体的な四角の
- * カードで表示し、ふちの色でクリア状況（金/銀/銅/現在地/ロック）を示す。
+ * 未来のステージ）へはスクロール自体ができない（handleScroll でその場に押し戻す）。
+ * 各ノードは章のテーマ画像（TILE_IMAGES）を、ホーム画面のタイルと同じく背景なしで
+ * 切り抜いたまま表示し、右下の番号バッジの色だけでクリア状況（金/銀/銅/現在地/ロック）を示す。
  * タイル画面（StageHub）からかぶせて開く形で使うため、onClose を渡すと戻るボタンが出る。
  */
 export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) {
@@ -106,6 +98,18 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
     MAX_FOCUS_SCALE,
     Math.max(MIN_FOCUS_SCALE, (windowWidth * 0.72) / NODE_SIZE),
   );
+  // 中央のノードが focusScale まで膨らんでも隣のノードに被らないよう、
+  // 実際の拡大率から逆算して間隔を決める（大きく拡大するほど間隔も広げる）。
+  const nodeGap = Math.max(MIN_GAP, (NODE_SIZE * focusScale) / 2 - NODE_SIZE / 2 + GAP_MARGIN);
+  const nodeHeight = NODE_SIZE + nodeGap;
+  /** 中央からこの距離（px）離れると等倍まで戻る。隣のノードでは等倍になっているようにする。 */
+  const scaleRange = nodeHeight * 0.9;
+  /**
+   * ステージ i の中心を画面中央に合わせるための scrollTop。
+   * ノードは marginVertical: nodeGap/2 で並ぶので、先頭ノードの中心は
+   * コンテンツ原点から nodeGap/2 だけ内側にある（nodeHeight/2 ではない）。
+   */
+  const scrollYForIndex = useCallback((index: number) => index * nodeHeight + nodeGap / 2, [nodeHeight, nodeGap]);
 
   // onLayout が(入れ子の横スクロールページの中で)発火しなくても機能するよう、
   // windowHeight からの見積もりを初期値にしておく。onLayout が発火すればより正確な値に補正する。
@@ -135,7 +139,7 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
     if (containerHeight <= 0 || scrolledOnce.current) return;
     scrolledOnce.current = true;
     scrollRef.current?.scrollTo({ y: scrollYForIndex(continueIndex), animated: false });
-  }, [containerHeight, continueIndex]);
+  }, [containerHeight, continueIndex, scrollYForIndex]);
 
   // 「次に遊ぶステージ」より先（まだ見えていない未来のステージ）にはスナップさせない
   const clampIndex = useCallback(
@@ -145,16 +149,23 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
 
   const snapToNearest = useCallback(
     (offsetY: number) => {
-      const raw = Math.round((offsetY - NODE_GAP / 2) / NODE_HEIGHT);
+      const raw = Math.round((offsetY - nodeGap / 2) / nodeHeight);
       scrollRef.current?.scrollTo({ y: scrollYForIndex(clampIndex(raw)), animated: true });
     },
-    [clampIndex],
+    [clampIndex, nodeGap, nodeHeight, scrollYForIndex],
   );
 
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const y = e.nativeEvent.contentOffset.y;
-      const index = Math.round((y - NODE_GAP / 2) / NODE_HEIGHT);
+
+      // 「次に遊ぶステージ」より先へは、ドラッグ中でもその場でスクロールを押し戻す
+      const minY = scrollYForIndex(continueIndexRef.current);
+      if (y < minY - 0.5) {
+        scrollRef.current?.scrollTo({ y: minY, animated: false });
+      }
+
+      const index = Math.round((y - nodeGap / 2) / nodeHeight);
       const clamped = Math.max(0, Math.min(displayLevels.length - 1, index));
       setFocusedIndex((prev) => (prev === clamped ? prev : clamped));
 
@@ -163,7 +174,7 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
       if (snapTimer.current) clearTimeout(snapTimer.current);
       snapTimer.current = setTimeout(() => snapToNearest(y), SNAP_DEBOUNCE_MS);
     },
-    [displayLevels.length, snapToNearest],
+    [displayLevels.length, nodeGap, nodeHeight, scrollYForIndex, snapToNearest],
   );
 
   useEffect(() => () => {
@@ -195,7 +206,7 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
   const focusedLevel = displayLevels[focusedIndex] ?? continueLevel;
   const focusedWorld = worldOf(focusedLevel.id);
   const padding = containerHeight > 0 ? Math.max(0, containerHeight / 2 - NODE_SIZE / 2) : 0;
-  const trackLength = (displayLevels.length - 1) * NODE_HEIGHT;
+  const trackLength = (displayLevels.length - 1) * nodeHeight;
 
   return (
     <SkyBackground theme={focusedWorld?.theme ?? 'meadow'}>
@@ -238,8 +249,8 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
           */}
           <View
             pointerEvents="none"
-            style={{ position: 'absolute', top: padding, left: 0, right: 0, height: displayLevels.length * NODE_HEIGHT }}>
-            <View style={[styles.pathTrack, { height: trackLength }]} />
+            style={{ position: 'absolute', top: padding, left: 0, right: 0, height: displayLevels.length * nodeHeight }}>
+            <View style={[styles.pathTrack, { top: nodeHeight / 2, height: trackLength }]} />
           </View>
           {displayLevels.map((level, index) => (
             <StageNode
@@ -252,6 +263,8 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
               focused={index === focusedIndex}
               targetScrollY={scrollYForIndex(index)}
               focusScale={focusScale}
+              scaleRange={scaleRange}
+              verticalMargin={nodeGap / 2}
               scrollY={scrollY}
               onPress={() => onSelect(level.id)}
             />
@@ -271,6 +284,8 @@ const StageNode = memo(function StageNode({
   focused,
   targetScrollY,
   focusScale,
+  scaleRange,
+  verticalMargin,
   scrollY,
   onPress,
 }: {
@@ -286,6 +301,10 @@ const StageNode = memo(function StageNode({
   targetScrollY: number;
   /** 中央に来たときの拡大率（ホーム画面のタイルに近い大きさになるよう画面幅から算出）。 */
   focusScale: number;
+  /** 中央からこの距離（px）離れると等倍まで戻る。 */
+  scaleRange: number;
+  /** ノード同士の間隔（片側ぶん）。 */
+  verticalMargin: number;
   scrollY: Animated.Value;
   onPress: () => void;
 }) {
@@ -305,13 +324,13 @@ const StageNode = memo(function StageNode({
 
   const tone: 'locked' | 'current' | Medal = !unlocked ? 'locked' : (medal ?? 'current');
   const badgeLabel = !unlocked ? '🔒' : String(number);
-  const borderColor = MEDAL_BORDER[tone];
+  const badgeColor = MEDAL_BORDER[tone];
   const glowScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] });
   const glowOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] });
 
   // スクロール位置がこのノードの中心と画面中央に一致するほど大きくする
   const scale = scrollY.interpolate({
-    inputRange: [targetScrollY - SCALE_RANGE, targetScrollY, targetScrollY + SCALE_RANGE],
+    inputRange: [targetScrollY - scaleRange, targetScrollY, targetScrollY + scaleRange],
     outputRange: [1, focusScale, 1],
     extrapolate: 'clamp',
   });
@@ -327,12 +346,15 @@ const StageNode = memo(function StageNode({
           ]}
         />
       ) : null}
-      <View style={styles.nodeWrap}>
-        <View style={[styles.nodePlate, { borderColor }]}>
-          <Image source={TILE_IMAGES[theme]} resizeMode="contain" style={styles.nodeImage} />
-          {!unlocked ? <View pointerEvents="none" style={styles.lockOverlay} /> : null}
+      <View style={[styles.nodeWrap, { marginVertical: verticalMargin }]}>
+        <View style={styles.nodePlate}>
+          <Image
+            source={TILE_IMAGES[theme]}
+            resizeMode="contain"
+            style={[styles.nodeImage, !unlocked && styles.nodeImageLocked]}
+          />
         </View>
-        <View style={[styles.numberBadge, { backgroundColor: borderColor }]}>
+        <View style={[styles.numberBadge, { backgroundColor: badgeColor }]}>
           <Text style={styles.numberBadgeText}>{badgeLabel}</Text>
         </View>
       </View>
@@ -421,7 +443,6 @@ const styles = StyleSheet.create({
   /** ノードの列の中央を貫く、まっすぐな道。 */
   pathTrack: {
     position: 'absolute',
-    top: NODE_HEIGHT / 2,
     left: '50%',
     marginLeft: -PATH_THICKNESS / 2,
     width: PATH_THICKNESS,
@@ -442,31 +463,25 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: NODE_SIZE,
     alignItems: 'center',
-    marginVertical: NODE_GAP / 2,
   },
   /** スクロールで中央に来ているノードだけ、隣と重なっても手前に出す。 */
   focusedNode: {
     zIndex: 10,
   },
-  /** ホーム画面のタイルと同じ、立体的な四角のカード。丸くトリミングしない。 */
+  /** ホーム画面のタイルと同じく、背景なし・ふちなしで切り抜いたテーマ画像をそのまま置く。 */
   nodePlate: {
     width: NODE_SIZE,
     height: NODE_SIZE,
-    borderRadius: NODE_SIZE * 0.16,
-    borderWidth: 3,
-    overflow: 'hidden',
-    backgroundColor: colors.panel,
-    ...ui.shadow,
-    shadowOffset: { width: 0, height: 3 },
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   nodeImage: {
     width: '100%',
     height: '100%',
   },
-  lockOverlay: {
-    position: 'absolute',
-    inset: 0,
-    backgroundColor: 'rgba(40, 40, 40, 0.55)',
+  /** 切り抜き画像そのものを薄くする（背景がないので、四角い暗幕は被せられない）。 */
+  nodeImageLocked: {
+    opacity: 0.4,
   },
   numberBadge: {
     position: 'absolute',
