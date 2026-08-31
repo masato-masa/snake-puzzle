@@ -65,8 +65,8 @@ type Phase = 'playing' | 'celebrating' | 'cleared';
 
 const CELEBRATION_MS = 1100;
 
-/** 戻るボタン（左上絶対配置）の見た目の横幅ぶん。看板と重ならないよう左右に確保する余白。 */
-const HEADER_SIDE_WIDTH = 88;
+/** 戻るボタン（左上絶対配置）の高さぶん。看板をその下に置くための paddingTop。 */
+const HEADER_SIGN_TOP = 62;
 
 /** 無料で使えるヒントの回数。これを超えたら広告を見ると使い放題になる。 */
 const FREE_HINT_LIMIT = 3;
@@ -286,14 +286,8 @@ export function GameView({
     <SkyBackground theme={theme}>
       <View style={styles.header}>
         <BackButton onPress={onBack} />
-        <View style={styles.headerRow}>
-          <View style={styles.headerSide} />
-          <View style={styles.headerCenter}>
-            <WoodSign eyebrow={world?.name ?? ''} title={displayName(level)} style={styles.headerSign} />
-            <DifficultyMeter level={level.difficulty ?? 1} />
-          </View>
-          <View style={styles.headerSide} />
-        </View>
+        <WoodSign eyebrow={world?.name ?? ''} title={displayName(level)} style={styles.headerSign} />
+        <DifficultyMeter level={level.difficulty ?? 1} />
       </View>
       <View style={styles.screen}>
         <View style={styles.boardArea} onLayout={onBoardAreaLayout}>
@@ -372,26 +366,16 @@ export function GameView({
 }
 
 const styles = StyleSheet.create({
+  /**
+   * 戻るボタン（左上に絶対配置）と看板が重ならないよう、看板は
+   * ボタンの下に来る位置まで paddingTop を確保してから並べる（同じ行に
+   * 横並びで置くと、看板を大きく・タイトルを長く保てなくなるため）。
+   */
   header: {
     position: 'relative',
-    paddingTop: 18,
+    paddingTop: HEADER_SIGN_TOP,
     paddingHorizontal: 20,
     paddingBottom: 8,
-  },
-  /**
-   * 戻るボタン（左上に絶対配置）と看板が重ならないよう、左右に固定幅の
-   * 余白を確保したうえで中央寄せする。左右対称に余白を取ることで、
-   * 見た目の中央位置は画面中央のまま変わらない。
-   */
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  headerSide: {
-    width: HEADER_SIDE_WIDTH,
-  },
-  headerCenter: {
-    flex: 1,
     alignItems: 'center',
     gap: 8,
   },
