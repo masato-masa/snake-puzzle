@@ -7,7 +7,7 @@
  */
 
 /** インタースティシャルを何ステージクリアごとに挟むか。 */
-const INTERSTITIAL_EVERY_LEVELS = 3;
+const INTERSTITIAL_EVERY_LEVELS = 5;
 
 let clearsSinceLastAd = 0;
 

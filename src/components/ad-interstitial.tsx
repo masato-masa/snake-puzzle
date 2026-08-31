@@ -4,7 +4,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '@/components/hud';
 import { colors, ui } from '@/theme';
 
-const SKIP_AFTER_MS = 3000;
+/** テストプレイ中はすぐ閉じられるようにしておく（本番配信前に実際の秒数へ戻す）。 */
+const SKIP_AFTER_MS = 0;
 
 type Props = {
   onClose: () => void;
