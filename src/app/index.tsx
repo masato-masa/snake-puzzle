@@ -86,14 +86,12 @@ export default function StageSelectScreen() {
             />
           ) : (
             <StageHub
-              progress={progress}
-              clearedCount={clearedCount}
               levelId={activeLevelId}
               streak={streak}
               onPlay={() => goToLevel(activeLevelId)}
               onOpenList={() => setShowStageList(true)}
               onOpenDaily={() => router.push('/daily')}
-              onOpenMyStages={() => router.push('/my-stages')}
+              onOpenTest={() => router.push('/test')}
             />
           )}
         </View>

@@ -71,6 +71,9 @@ const GAP_MARGIN = 16;
  */
 const HEADER_HEIGHT_ESTIMATE = 130;
 
+/** 戻るボタン（左上絶対配置）の見た目の横幅ぶん。看板と重ならないよう左右に確保する余白。 */
+const HEADER_SIDE_WIDTH = 88;
+
 type Props = {
   progress: Progress;
   clearedCount: number;
@@ -199,15 +202,20 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
     <SkyBackground theme={focusedWorld?.theme ?? 'meadow'}>
       <View style={styles.ribbonWrap}>
         {onClose ? <BackButton onPress={onClose} /> : null}
-        <WoodSign
-          eyebrow={focusedLevel ? (focusedWorld?.name ?? '') : 'つづきは近日'}
-          title={focusedLevel ? displayName(focusedLevel) : '？？？'}
-        />
-        <View style={styles.ribbonFooter}>
-          <DifficultyMeter level={focusedLevel?.difficulty ?? 1} showLabel={false} />
-          <Text style={styles.headerProgress}>
-            クリア {clearedCount} / {LEVELS.length}
-          </Text>
+        <View style={styles.ribbonRow}>
+          <View style={styles.ribbonSide} />
+          <View style={styles.ribbonCenter}>
+            <WoodSign
+              eyebrow={focusedLevel ? (focusedWorld?.name ?? '') : 'つづきは近日'}
+              title={focusedLevel ? displayName(focusedLevel) : '？？？'}
+              style={styles.ribbonSign}
+            />
+            <DifficultyMeter level={focusedLevel?.difficulty ?? 1} />
+            <Text style={styles.headerProgress}>
+              クリア {clearedCount} / {LEVELS.length}
+            </Text>
+          </View>
+          <View style={styles.ribbonSide} />
         </View>
       </View>
 
@@ -397,13 +405,26 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingHorizontal: 20,
     paddingBottom: 12,
+  },
+  /**
+   * 戻るボタン（左上に絶対配置）と看板が重ならないよう、左右に固定幅の
+   * 余白を確保したうえで中央寄せする。左右対称に余白を取ることで、
+   * 見た目の中央位置は画面中央のまま変わらない。
+   */
+  ribbonRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  ribbonSide: {
+    width: HEADER_SIDE_WIDTH,
+  },
+  ribbonCenter: {
+    flex: 1,
     alignItems: 'center',
     gap: 8,
   },
-  ribbonFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  ribbonSign: {
+    maxWidth: '100%',
   },
   headerProgress: {
     color: colors.textMuted,
