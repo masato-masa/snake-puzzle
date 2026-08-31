@@ -1,18 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SkyBackground } from '@/components/sky-background';
-import { displayName, getLevel, LEVELS, worldOf, type WorldTheme } from '@/levels/levels';
+import { displayName, getLevel, LEVELS, worldOf } from '@/levels/levels';
+import { TILE_IMAGES } from '@/lib/tile-images';
 import type { Progress } from '@/storage/progress';
 import { colors, ui } from '@/theme';
-
-const TILE_IMAGES: Record<WorldTheme, ImageSourcePropType> = {
-  meadow: require('@/assets/images/tiles/meadow.png'),
-  desert: require('@/assets/images/tiles/desert.png'),
-  cave: require('@/assets/images/tiles/cave.png'),
-  ice: require('@/assets/images/tiles/ice.png'),
-  night: require('@/assets/images/tiles/night.png'),
-};
 
 const WOOD_SIGN = require('@/assets/images/ui/wood-sign.png');
 
@@ -21,10 +14,16 @@ type Props = {
   clearedCount: number;
   /** ホーム画面に反映されている、いま選ばれているステージ。 */
   levelId: string;
+  /** デイリー問題の連続クリア日数。 */
+  streak: number;
   /** プレイボタンを押したとき。 */
   onPlay: () => void;
   /** タイルをタップしたときに、ステージ一覧をかぶせて開く。 */
   onOpenList: () => void;
+  /** 「きょうのもんだい」ボタンを押したとき。 */
+  onOpenDaily: () => void;
+  /** 「マイステージ」ボタンを押したとき。 */
+  onOpenMyStages: () => void;
 };
 
 /**
@@ -32,7 +31,16 @@ type Props = {
  * かぶさって開く。一覧でステージを選ぶとこの画面に反映されるだけで、
  * 実際にプレイが始まるのは「プレイ」ボタンを押したときだけ。
  */
-export function StageHub({ progress, clearedCount, levelId, onPlay, onOpenList }: Props) {
+export function StageHub({
+  progress,
+  clearedCount,
+  levelId,
+  streak,
+  onPlay,
+  onOpenList,
+  onOpenDaily,
+  onOpenMyStages,
+}: Props) {
   const level = getLevel(levelId) ?? LEVELS[0];
   const world = worldOf(level.id);
   const theme = world?.theme ?? 'meadow';
@@ -65,6 +73,24 @@ export function StageHub({ progress, clearedCount, levelId, onPlay, onOpenList }
             <Text style={styles.playText}>プレイ</Text>
           </LinearGradient>
         </Pressable>
+
+        <View style={styles.secondaryRow}>
+          <Pressable
+            onPress={onOpenDaily}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}>
+            <Text style={styles.secondaryButtonText}>きょうのもんだい</Text>
+            {streak > 0 ? (
+              <View style={styles.streakBadge}>
+                <Text style={styles.streakBadgeText}>{streak}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+          <Pressable
+            onPress={onOpenMyStages}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}>
+            <Text style={styles.secondaryButtonText}>マイステージ</Text>
+          </Pressable>
+        </View>
       </View>
     </SkyBackground>
   );
@@ -160,5 +186,46 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: 4,
+  },
+  secondaryRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.panel,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    borderColor: colors.panelBorder,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    ...ui.shadow,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  secondaryButtonPressed: {
+    marginTop: 2,
+    borderBottomWidth: 2,
+  },
+  secondaryButtonText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  streakBadge: {
+    backgroundColor: colors.accent,
+    borderRadius: 999,
+    minWidth: 20,
+    paddingHorizontal: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streakBadgeText: {
+    color: colors.textOnDark,
+    fontSize: 11,
+    fontWeight: '900',
   },
 });

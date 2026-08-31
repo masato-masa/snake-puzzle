@@ -1,10 +1,8 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -12,13 +10,15 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ScrollView,
 } from 'react-native';
 
 import { starCount } from '@/components/clear-overlay';
 import { DifficultyMeter } from '@/components/difficulty-meter';
 import { SkyBackground } from '@/components/sky-background';
 import type { Level } from '@/engine';
-import { displayName, getLevelIndex, isLevelUnlocked, LEVELS, worldOf } from '@/levels/levels';
+import { displayName, getLevelIndex, isLevelUnlocked, LEVELS, worldOf, type WorldTheme } from '@/levels/levels';
+import { TILE_IMAGES } from '@/lib/tile-images';
 import type { Progress } from '@/storage/progress';
 import { colors, ui } from '@/theme';
 
@@ -32,20 +32,7 @@ const medalFor = (level: Level, progress: Progress): Medal | null => {
   return stars >= 3 ? 'gold' : stars === 2 ? 'silver' : 'bronze';
 };
 
-/** メダルの色ごとの、ふち（濃い外側）と面（明るい内側）のグラデーション。 */
-const MEDAL_GRADIENTS: Record<'locked' | 'current' | Medal, { rim: [string, string]; face: [string, string] }> = {
-  locked: { rim: [colors.metalLight, colors.metalDark], face: [colors.metalLight, colors.metal] },
-  current: { rim: [colors.gemTealLight, colors.gemTealDark], face: [colors.gemTealLight, colors.gemTealDark] },
-  gold: { rim: [colors.medalGoldLight, colors.medalGoldDark], face: [colors.medalGoldLight, colors.medalGold] },
-  silver: {
-    rim: [colors.medalSilverLight, colors.medalSilverDark],
-    face: [colors.medalSilverLight, colors.medalSilver],
-  },
-  bronze: {
-    rim: [colors.medalBronzeLight, colors.medalBronzeDark],
-    face: [colors.medalBronzeLight, colors.medalBronze],
-  },
-};
+/** ふち・番号バッジの色。 */
 const MEDAL_BORDER: Record<'locked' | 'current' | Medal, string> = {
   locked: colors.metalDark,
   current: colors.gemTealDark,
@@ -58,11 +45,9 @@ const NODE_SIZE = 64;
 const NODE_GAP = 34;
 const NODE_HEIGHT = NODE_SIZE + NODE_GAP;
 const FOCUS_SCALE = 1.3;
-const NEXT_SCALE = 1.15;
+/** 中央からこの距離（px）離れると等倍まで戻る。中央に近いほど連続的に拡大する。 */
+const SCALE_RANGE = NODE_HEIGHT * 1.4;
 const PATH_THICKNESS = 10;
-const PATH_DOT_SIZE = 14;
-/** ドット同士のおおよその間隔（px）。道全体の長さに応じて個数を決める。 */
-const PATH_DOT_SPACING = 26;
 
 const WOOD_SIGN = require('@/assets/images/ui/wood-sign.png');
 
@@ -73,6 +58,13 @@ const WOOD_SIGN = require('@/assets/images/ui/wood-sign.png');
  */
 const HEADER_HEIGHT_ESTIMATE = 130;
 
+/**
+ * ステージ i の中心を画面中央に合わせるための scrollTop。
+ * ノードは marginVertical: NODE_GAP/2 で並ぶので、先頭ノードの中心は
+ * コンテンツ原点から NODE_GAP/2 だけ内側にある（NODE_HEIGHT/2 ではない）。
+ */
+const scrollYForIndex = (index: number) => index * NODE_HEIGHT + NODE_GAP / 2;
+
 type Props = {
   progress: Progress;
   clearedCount: number;
@@ -82,10 +74,13 @@ type Props = {
 };
 
 /**
- * ステージ一覧。100 面を一直線の道として縦に並べ、画面中央に来たステージだけ
- * 拡大表示する。表示は 100 → 1 の順（下ほど古い・一番下がステージ1）で、
- * 開いた瞬間は「次に遊ぶステージ」が中央に来るようにする。
- * 見た目は木製の看板ヘッダー＋金属メダルのノードで、盤ゲームらしい厚みを出している。
+ * ステージ一覧。100 面を一直線の道として縦に並べ、画面中央に近いステージほど
+ * 連続的に拡大表示する（コンベア風）。指を離してスクロールの慣性が止まったら、
+ * 一番近いステージの中心が画面中央にぴったり合うよう自動でスナップする。
+ * 表示は 100 → 1 の順（下ほど古い・一番下がステージ1）で、開いた瞬間は
+ * 「次に遊ぶステージ」が中央に来るようにする。
+ * 各ノードは章のテーマ画像（TILE_IMAGES）を丸く切り抜いたもので、
+ * ふちの色でクリア状況（金/銀/銅/現在地/ロック）を示す。
  * タイル画面（StageHub）からかぶせて開く形で使うため、onClose を渡すと戻るボタンが出る。
  */
 export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) {
@@ -110,6 +105,7 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
   );
   const scrollRef = useRef<ScrollView>(null);
   const scrolledOnce = useRef(false);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
     const measured = e.nativeEvent.layout.height;
@@ -124,29 +120,50 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
       0,
       displayLevels.findIndex((l) => l.id === continueLevel.id),
     );
-    scrollRef.current?.scrollTo({ y: index * NODE_HEIGHT, animated: false });
+    scrollRef.current?.scrollTo({ y: scrollYForIndex(index), animated: false });
   }, [containerHeight, displayLevels, continueLevel]);
 
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const y = e.nativeEvent.contentOffset.y;
-      const index = Math.round(y / NODE_HEIGHT);
+      const index = Math.round((y - NODE_GAP / 2) / NODE_HEIGHT);
       const clamped = Math.max(0, Math.min(displayLevels.length - 1, index));
       setFocusedIndex((prev) => (prev === clamped ? prev : clamped));
     },
     [displayLevels.length],
   );
 
+  const onScroll = useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: true,
+        listener: handleScroll,
+      }),
+    [scrollY, handleScroll],
+  );
+
+  // 慣性が止まったところで、一番近いステージの中心を画面中央にスナップさせる
+  const snapToNearest = useCallback(
+    (offsetY: number) => {
+      const index = Math.round((offsetY - NODE_GAP / 2) / NODE_HEIGHT);
+      const clamped = Math.max(0, Math.min(displayLevels.length - 1, index));
+      scrollRef.current?.scrollTo({ y: scrollYForIndex(clamped), animated: true });
+    },
+    [displayLevels.length],
+  );
+  const onMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => snapToNearest(e.nativeEvent.contentOffset.y),
+    [snapToNearest],
+  );
+  const onScrollEndDrag = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => snapToNearest(e.nativeEvent.contentOffset.y),
+    [snapToNearest],
+  );
+
   const focusedLevel = displayLevels[focusedIndex] ?? continueLevel;
   const focusedWorld = worldOf(focusedLevel.id);
   const padding = containerHeight > 0 ? Math.max(0, containerHeight / 2 - NODE_SIZE / 2) : 0;
-
-  // 一直線の道。最初と最後のノード中心を結ぶ長さぶんだけ、等間隔にドットを置く。
   const trackLength = (displayLevels.length - 1) * NODE_HEIGHT;
-  const pathDotTops = useMemo(() => {
-    const count = Math.max(1, Math.round(trackLength / PATH_DOT_SPACING));
-    return Array.from({ length: count }, (_, i) => NODE_HEIGHT / 2 + ((i + 0.5) / count) * trackLength);
-  }, [trackLength]);
 
   return (
     <SkyBackground theme={focusedWorld?.theme ?? 'meadow'}>
@@ -174,32 +191,39 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
       </View>
 
       <View style={styles.listArea} onLayout={onContainerLayout}>
-        <ScrollView
+        <Animated.ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
           scrollEventThrottle={16}
-          onScroll={handleScroll}
+          onScroll={onScroll}
+          onMomentumScrollEnd={onMomentumScrollEnd}
+          onScrollEndDrag={onScrollEndDrag}
           contentContainerStyle={{ paddingVertical: padding, alignItems: 'center' }}>
+          {/*
+            position:absolute の子は、paddingVertical を無視して「パディング込みの外枠」の
+            top:0 に置かれる（flow 側の子はパディング分だけ内側から始まる）。
+            なので top には明示的に padding を足して、ノードの並びと基準点をそろえる。
+          */}
           <View
             pointerEvents="none"
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, height: displayLevels.length * NODE_HEIGHT }}>
+            style={{ position: 'absolute', top: padding, left: 0, right: 0, height: displayLevels.length * NODE_HEIGHT }}>
             <View style={[styles.pathTrack, { height: trackLength }]} />
-            {pathDotTops.map((top, i) => (
-              <View key={i} style={[styles.pathDot, { top: top - PATH_DOT_SIZE / 2 }]} />
-            ))}
           </View>
           {displayLevels.map((level, index) => (
             <StageNode
               key={level.id}
               number={getLevelIndex(level.id) + 1}
+              theme={worldOf(level.id)?.theme ?? 'meadow'}
               medal={medalFor(level, progress)}
               unlocked={isLevelUnlocked(level.id, isCleared)}
               isNext={level.id === continueLevel.id}
               focused={index === focusedIndex}
+              targetScrollY={scrollYForIndex(index)}
+              scrollY={scrollY}
               onPress={() => onSelect(level.id)}
             />
           ))}
-        </ScrollView>
+        </Animated.ScrollView>
       </View>
     </SkyBackground>
   );
@@ -207,32 +231,29 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
 
 const StageNode = memo(function StageNode({
   number,
+  theme,
   medal,
   unlocked,
   isNext,
   focused,
+  targetScrollY,
+  scrollY,
   onPress,
 }: {
   number: number;
+  theme: WorldTheme;
   medal: Medal | null;
   unlocked: boolean;
   /** 「次に遊ぶステージ」＝クリア済みでも一番若い未クリア面。宝石色で目立たせる。 */
   isNext: boolean;
+  /** 現在スクロール中で一番近いステージか。重なったときに手前へ出すためだけに使う。 */
   focused: boolean;
+  /** scrollY がこの値のとき、このノードが画面中央に来る。 */
+  targetScrollY: number;
+  scrollY: Animated.Value;
   onPress: () => void;
 }) {
-  const targetScale = focused ? FOCUS_SCALE : isNext ? NEXT_SCALE : 1;
-  const scale = useRef(new Animated.Value(targetScale)).current;
   const pulse = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.spring(scale, {
-      toValue: targetScale,
-      friction: 6,
-      tension: 90,
-      useNativeDriver: true,
-    }).start();
-  }, [targetScale, scale]);
 
   useEffect(() => {
     if (!isNext) return;
@@ -247,14 +268,20 @@ const StageNode = memo(function StageNode({
   }, [isNext, pulse]);
 
   const tone: 'locked' | 'current' | Medal = !unlocked ? 'locked' : (medal ?? 'current');
-  const label = !unlocked ? '🔒' : String(number);
-  const gradients = MEDAL_GRADIENTS[tone];
-  const textColor = !unlocked ? colors.textMuted : medal ? colors.text : colors.textOnDark;
+  const badgeLabel = !unlocked ? '🔒' : String(number);
+  const borderColor = MEDAL_BORDER[tone];
   const glowScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] });
   const glowOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] });
 
+  // スクロール位置がこのノードの中心と画面中央に一致するほど大きくする
+  const scale = scrollY.interpolate({
+    inputRange: [targetScrollY - SCALE_RANGE, targetScrollY, targetScrollY + SCALE_RANGE],
+    outputRange: [1, FOCUS_SCALE, 1],
+    extrapolate: 'clamp',
+  });
+
   const content = (
-    <Animated.View style={{ transform: [{ scale }] }}>
+    <Animated.View style={[{ transform: [{ scale }] }, focused && styles.focusedNode]}>
       {isNext ? (
         <Animated.View
           pointerEvents="none"
@@ -265,15 +292,14 @@ const StageNode = memo(function StageNode({
         />
       ) : null}
       <View style={styles.nodeWrap}>
-        <View pointerEvents="none" style={[styles.nodeBase, { backgroundColor: MEDAL_BORDER[tone] }]} />
-        <LinearGradient
-          colors={gradients.rim}
-          style={[styles.nodeRim, { borderColor: MEDAL_BORDER[tone] }]}>
-          <LinearGradient colors={gradients.face} style={styles.nodeFace}>
-            <Text style={[styles.nodeText, { color: textColor }]}>{label}</Text>
-          </LinearGradient>
-          <View style={styles.nodeShine} />
-        </LinearGradient>
+        <View style={[styles.nodeRing, { borderColor }]}>
+          <Image source={TILE_IMAGES[theme]} resizeMode="cover" style={styles.nodeImage} />
+          {!unlocked ? <View pointerEvents="none" style={styles.lockOverlay} /> : null}
+          <View pointerEvents="none" style={styles.nodeShine} />
+        </View>
+        <View style={[styles.numberBadge, { backgroundColor: borderColor }]}>
+          <Text style={styles.numberBadgeText}>{badgeLabel}</Text>
+        </View>
       </View>
     </Animated.View>
   );
@@ -369,16 +395,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.medalGoldDark,
   },
-  /** 縄のドット（ビーズ）。pathTrack の上に等間隔で重ねる。 */
-  pathDot: {
-    position: 'absolute',
-    left: '50%',
-    width: PATH_DOT_SIZE,
-    height: PATH_DOT_SIZE,
-    marginLeft: -PATH_DOT_SIZE / 2,
-    borderRadius: PATH_DOT_SIZE / 2,
-    backgroundColor: colors.medalGoldDark,
-  },
   glow: {
     position: 'absolute',
     top: -4,
@@ -388,47 +404,61 @@ const styles = StyleSheet.create({
     borderRadius: (NODE_SIZE + 8) / 2,
   },
   nodeWrap: {
+    position: 'relative',
     width: NODE_SIZE,
     alignItems: 'center',
     marginVertical: NODE_GAP / 2,
   },
-  /** オーブの台座（下にのぞく四角い足）。オーブの陰に半分隠れるよう先に描く。 */
-  nodeBase: {
-    position: 'absolute',
-    top: NODE_SIZE * 0.78,
-    width: NODE_SIZE * 0.46,
-    height: NODE_SIZE * 0.32,
-    borderRadius: NODE_SIZE * 0.14,
+  /** スクロールで中央に来ているノードだけ、隣と重なっても手前に出す。 */
+  focusedNode: {
+    zIndex: 10,
   },
-  nodeRim: {
+  nodeRing: {
     width: NODE_SIZE,
     height: NODE_SIZE,
     borderRadius: NODE_SIZE / 2,
     borderWidth: 3,
-    borderBottomWidth: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
+    backgroundColor: colors.metalLight,
     ...ui.shadow,
     shadowOffset: { width: 0, height: 2 },
   },
-  nodeFace: {
+  nodeImage: {
+    width: '100%',
+    height: '100%',
+  },
+  lockOverlay: {
     position: 'absolute',
-    inset: 7,
-    borderRadius: (NODE_SIZE - 14) / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    inset: 0,
+    backgroundColor: 'rgba(40, 40, 40, 0.55)',
   },
   nodeShine: {
     position: 'absolute',
-    top: '12%',
-    left: '20%',
-    width: '44%',
-    height: '26%',
+    top: '10%',
+    left: '18%',
+    width: '40%',
+    height: '22%',
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: 'rgba(255,255,255,0.5)',
   },
-  nodeText: {
-    fontSize: 18,
+  numberBadge: {
+    position: 'absolute',
+    right: -4,
+    bottom: -4,
+    minWidth: NODE_SIZE * 0.42,
+    height: NODE_SIZE * 0.42,
+    borderRadius: NODE_SIZE * 0.21,
+    borderWidth: 2,
+    borderColor: colors.textOnDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    ...ui.shadow,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  numberBadgeText: {
+    color: colors.textOnDark,
+    fontSize: 13,
     fontWeight: '900',
   },
 });
