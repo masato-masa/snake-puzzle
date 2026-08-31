@@ -11,14 +11,10 @@ import { colors, ui } from '@/theme';
 type Props = {
   /** ホーム画面に反映されている、いま選ばれているステージ。 */
   levelId: string;
-  /** デイリー問題の連続クリア日数。 */
-  streak: number;
   /** プレイボタンを押したとき。 */
   onPlay: () => void;
   /** タイルをタップしたときに、ステージ一覧をかぶせて開く。 */
   onOpenList: () => void;
-  /** 「きょうのもんだい」ボタンを押したとき。 */
-  onOpenDaily: () => void;
   /** 右下の小さな「テスト用」ボタンを押したとき。 */
   onOpenTest: () => void;
 };
@@ -30,10 +26,8 @@ type Props = {
  */
 export function StageHub({
   levelId,
-  streak,
   onPlay,
   onOpenList,
-  onOpenDaily,
   onOpenTest,
 }: Props) {
   const level = getLevel(levelId) ?? LEVELS[0];
@@ -61,19 +55,6 @@ export function StageHub({
             <Text style={styles.playText}>プレイ</Text>
           </LinearGradient>
         </Pressable>
-
-        <View style={styles.secondaryRow}>
-          <Pressable
-            onPress={onOpenDaily}
-            style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}>
-            <Text style={styles.secondaryButtonText}>きょうのもんだい</Text>
-            {streak > 0 ? (
-              <View style={styles.streakBadge}>
-                <Text style={styles.streakBadgeText}>{streak}</Text>
-              </View>
-            ) : null}
-          </Pressable>
-        </View>
 
         <Pressable
           onPress={onOpenTest}
@@ -134,47 +115,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: 4,
-  },
-  secondaryRow: {
-    marginTop: 6,
-    flexDirection: 'row',
-    gap: 10,
-  },
-  secondaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.panel,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderBottomWidth: 4,
-    borderColor: colors.panelBorder,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    ...ui.shadow,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  secondaryButtonPressed: {
-    marginTop: 2,
-    borderBottomWidth: 2,
-  },
-  secondaryButtonText: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  streakBadge: {
-    backgroundColor: colors.accent,
-    borderRadius: 999,
-    minWidth: 20,
-    paddingHorizontal: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  streakBadgeText: {
-    color: colors.textOnDark,
-    fontSize: 11,
-    fontWeight: '900',
   },
   testButton: {
     position: 'absolute',

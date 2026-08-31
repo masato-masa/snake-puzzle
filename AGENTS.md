@@ -25,10 +25,9 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before 
 - ジェスチャーは React Native 標準の `PanResponder`、アニメーションは標準の `Animated` を使っている
   （reanimated / gesture-handler のワークレットには依存していない）。
 - プレイ画面の中身は `src/components/game-view.tsx` に集約している。
-  通常ステージ（`app/game/[levelId].tsx`）とデイリー（`app/daily.tsx`）はここに level を渡すだけ。
+  通常ステージ（`app/game/[levelId].tsx`）はここに level を渡すだけ。
 - ヘビは「丸い体節＋つなぎの四角」を、輪郭パス → 本体パス の 2 回に分けて描いている。
   体節ごとに輪郭を描くと継ぎ目が出るので、この 2 パス構成は崩さないこと。
 - 移動アニメーションは `move()` が返す `path` を使い、`src/lib/snake-track.ts` の道すじに沿って
   各体節を 1 マスずつ進める（多点 interpolate）。始点と終点だけを補間すると曲がり角を斜めに
   突っ切ってしまうので、この方式を変えないこと。`__tests__/snake-track.test.ts` が守っている。
-- デイリーは日付を seed にした決定的生成。`buildDailyLevel` の中身を変えると過去の日付の問題も変わる。

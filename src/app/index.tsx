@@ -4,9 +4,7 @@ import { StyleSheet, useWindowDimensions, View, type LayoutChangeEvent } from 'r
 
 import { StageHub } from '@/components/stage-hub';
 import { StagePath } from '@/components/stage-path';
-import { todayKey } from '@/levels/daily';
 import { LEVELS } from '@/levels/levels';
-import { currentStreak, loadDaily, type DailyState } from '@/storage/daily';
 import { loadProgress, type Progress } from '@/storage/progress';
 
 export default function StageSelectScreen() {
@@ -22,12 +20,10 @@ export default function StageSelectScreen() {
   const { width, height } = size;
   const [showStageList, setShowStageList] = useState(false);
   const [progress, setProgress] = useState<Progress>({});
-  const [daily, setDaily] = useState<DailyState | null>(null);
   /** ホーム画面のタイル下で選ばれているステージ。未選択なら「次に遊ぶステージ」を使う。 */
   const [selectedLevelId, setSelectedLevelId] = useState<string | null>(null);
   /** 直前に読み込んだ progress。「選択中のステージを今まさにクリアしたか」の判定に使う。 */
   const progressRef = useRef<Progress>({});
-  const today = todayKey();
 
   useFocusEffect(
     useCallback(() => {
@@ -46,9 +42,6 @@ export default function StageSelectScreen() {
           return !wasCleared && isClearedNow ? null : prev;
         });
       });
-      loadDaily().then((d) => {
-        if (active) setDaily(d);
-      });
       return () => {
         active = false;
       };
@@ -57,7 +50,6 @@ export default function StageSelectScreen() {
 
   const isCleared = (levelId: string) => !!progress[levelId]?.cleared;
   const clearedCount = LEVELS.filter((l) => isCleared(l.id)).length;
-  const streak = daily ? currentStreak(daily, today) : 0;
   const continueLevel = LEVELS.find((l) => !isCleared(l.id)) ?? LEVELS[LEVELS.length - 1];
   const activeLevelId = selectedLevelId ?? continueLevel.id;
 
@@ -87,10 +79,8 @@ export default function StageSelectScreen() {
           ) : (
             <StageHub
               levelId={activeLevelId}
-              streak={streak}
               onPlay={() => goToLevel(activeLevelId)}
               onOpenList={() => setShowStageList(true)}
-              onOpenDaily={() => router.push('/daily')}
               onOpenTest={() => router.push('/test')}
             />
           )}
