@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Image,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -85,13 +86,18 @@ type Props = {
  * ステージ一覧。100 面を一直線の道として縦に並べ、画面中央に来たステージだけ
  * ホーム画面のタイルくらいの大きさまで拡大する（コンベア風）。
  *
- * 中央への吸着（スナップ）は自前の JS では行わず、CSS の scroll-snap
- * （scrollSnapType: 'y mandatory' + 各ノードの scrollSnapAlign: 'center'）に
- * 任せている。指でのドラッグ中はブラウザの通常のスクロールと同じく指の動きに
- * 素直に追従し、指を離した瞬間（慣性の有無に関わらず）だけブラウザが自然に
- * 一番近いノードの中心へ収束させる。JS 側で scrollTo を撃って割り込むと、
+ * 中央への吸着（スナップ）は自前の JS では行わず、プラットフォーム標準の機構に
+ * 任せている。web は CSS の scroll-snap（scrollSnapType: 'y mandatory' +
+ * 各ノードの scrollSnapAlign: 'center'）、ネイティブ（将来の iOS/Android アプリ
+ * 化）は React Native 標準の snapToOffsets + decelerationRate="fast" を使う
+ * （scroll-snap は CSS なので web にしか効かず、snapToOffsets は逆に
+ * react-native-web が未実装なので web には効かない。両方同時に渡しても
+ * お互い無視し合うだけなので害はなく、これで両対応になる）。
+ * どちらの場合も、ドラッグ中はプラットフォームの通常のスクロールと同じく指の
+ * 動きに素直に追従し、指を離した瞬間（慣性の有無に関わらず）だけ自然に
+ * 一番近いノードの中心へ収束する。JS 側で scrollTo を撃って割り込むと、
  * ネイティブの慣性と競合してガタつく／ドラッグ中の動きが不自然になる
- * （実際に自前実装で両方の不具合が起きたため、CSS 側に一本化した）。
+ * （実際に自前実装で両方の不具合が起きたため、プラットフォーム標準に一本化した）。
  *
  * 表示は 100 → 1 の順（下ほど古い・一番下がステージ1）で、開いた瞬間は
  * 「次に遊ぶステージ」（または渡された initialLevelId）が中央に来るようにする。
@@ -182,6 +188,13 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
   const focusedLevel = displayLevels[focusedSlot - 1];
   const focusedWorld = focusedLevel ? worldOf(focusedLevel.id) : undefined;
   const padding = containerHeight > 0 ? Math.max(0, containerHeight / 2 - NODE_SIZE / 2) : 0;
+  // ネイティブ（iOS/Android）向け。各スロットを中央に持ってくる scrollTop の一覧を渡すと、
+  // 標準の ScrollView がそこへ吸着してくれる。web では react-native-web 側が
+  // このプロパティを実装していないため単に無視され、CSS の scroll-snap だけが効く。
+  const snapOffsets = useMemo(
+    () => Array.from({ length: totalSlots }, (_, slot) => scrollYForSlot(slot)),
+    [totalSlots, scrollYForSlot],
+  );
 
   return (
     <SkyBackground theme={focusedWorld?.theme ?? 'meadow'}>
@@ -211,6 +224,8 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
           scrollEventThrottle={16}
           onScroll={onScroll}
           style={scrollSnapStyle}
+          decelerationRate="fast"
+          snapToOffsets={snapOffsets}
           contentContainerStyle={{ paddingVertical: padding, alignItems: 'center' }}>
           <MysteryNode
             targetScrollY={scrollYForSlot(0)}
@@ -369,10 +384,18 @@ const StageNode = memo(function StageNode({
 /**
  * scroll-snap-* は RN の ViewStyle 型に無い web 専用 CSS プロパティなので、
  * StyleSheet.create の中には置かず（型が汚染される）、素のオブジェクトとして
- * 個別にキャストする。RN Web は未知のキーもそのまま CSS として通す。
+ * 個別にキャストする。RN Web は未知のキーもそのまま CSS として通すが、
+ * ネイティブ側の RN スタイル検証で警告が出ないよう web 限定で付ける
+ * （ネイティブは snapToOffsets 側で吸着させる）。
  */
-const scrollSnapStyle = { scrollSnapType: 'y mandatory' } as unknown as ViewStyle;
-const snapChildStyle = { scrollSnapAlign: 'center' } as unknown as ViewStyle;
+const scrollSnapStyle = Platform.select({
+  web: { scrollSnapType: 'y mandatory' } as unknown as ViewStyle,
+  default: undefined,
+});
+const snapChildStyle = Platform.select({
+  web: { scrollSnapAlign: 'center' } as unknown as ViewStyle,
+  default: undefined,
+});
 
 const styles = StyleSheet.create({
   ribbonWrap: {
