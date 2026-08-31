@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { AdBanner } from '@/components/ad-banner';
 import { DifficultyMeter } from '@/components/difficulty-meter';
 import { SkyBackground } from '@/components/sky-background';
 import { WoodSign } from '@/components/wood-sign';
@@ -63,6 +64,7 @@ export function StageHub({
           <Text style={styles.testButtonText}>テスト用</Text>
         </Pressable>
       </View>
+      <AdBanner />
     </SkyBackground>
   );
 }

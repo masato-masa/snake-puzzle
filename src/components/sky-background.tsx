@@ -15,8 +15,10 @@ const BACKGROUND_IMAGES: Record<WorldTheme, ImageSourcePropType> = {
 /**
  * 章の背景やタイルは 1 枚 1MB を超えることがあり、初めて表示するときだけ
  * 読み込みが間に合わず、水色のフォールバックが一瞬見えてしまう。
- * SkyBackground が最初にマウントされたタイミングで全章ぶんまとめて先読み
- * しておき、実際にその章を表示する頃には既にキャッシュ済みにしておく。
+ * とはいえ全章ぶん（5章 × 背景+タイルで計 11MB ほど）を一度に先読みすると、
+ * 今まさに表示したい章の画像と帯域を取り合ってしまい、初回表示そのものが
+ * 遅くなる。そこで、今使う章だけ即座に先読みし、残りの章は少し間を置いて
+ * （今の画面が落ち着いてから）バックグラウンドで先読みする。
  */
 /** require() した画像は web だと文字列 URL、{uri} オブジェクトのどちらの形でも来うる。 */
 const uriOf = (source: ImageSourcePropType): string | null => {
@@ -27,14 +29,25 @@ const uriOf = (source: ImageSourcePropType): string | null => {
   return null;
 };
 
-let preloaded = false;
-const preloadBackgrounds = () => {
-  if (preloaded) return;
-  preloaded = true;
-  [...Object.values(BACKGROUND_IMAGES), ...Object.values(TILE_IMAGES)].forEach((source) => {
-    const uri = uriOf(source);
-    if (uri) Image.prefetch(uri);
-  });
+const preloadedThemes = new Set<WorldTheme>();
+const preloadTheme = (theme: WorldTheme) => {
+  if (preloadedThemes.has(theme)) return;
+  preloadedThemes.add(theme);
+  const bgUri = uriOf(BACKGROUND_IMAGES[theme]);
+  const tileUri = uriOf(TILE_IMAGES[theme]);
+  if (bgUri) Image.prefetch(bgUri);
+  if (tileUri) Image.prefetch(tileUri);
+};
+
+/** 他の章ぶんの先読みは一度だけ予約する。 */
+let othersScheduled = false;
+const REMAINING_PRELOAD_DELAY_MS = 2000;
+const scheduleRemainingPreload = () => {
+  if (othersScheduled) return;
+  othersScheduled = true;
+  setTimeout(() => {
+    (Object.keys(BACKGROUND_IMAGES) as WorldTheme[]).forEach(preloadTheme);
+  }, REMAINING_PRELOAD_DELAY_MS);
 };
 
 /** 章ごとに表情が変わる背景。子要素はこの上に重ねる。 */
@@ -46,8 +59,9 @@ export function SkyBackground({
   theme?: WorldTheme;
 }) {
   useEffect(() => {
-    preloadBackgrounds();
-  }, []);
+    preloadTheme(theme);
+    scheduleRemainingPreload();
+  }, [theme]);
 
   return (
     <View style={styles.root}>

@@ -1897,7 +1897,7 @@ export const LEVELS: Level[] = [
   {
     // 問い(E+F+A): quad-gate-sand-7x7と同じ骨格に、体を1マス伸ばした最終盤（BFS逆引き探索で作成）。
     id: 'quad-gate-sand-long-7x7',
-    name: '四匹のからくり・門と砂（長）',
+    name: '四匹の門と砂（長）',
     rows: 7,
     cols: 7,
     walls: cells([[6, 3]]),
