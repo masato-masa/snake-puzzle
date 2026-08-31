@@ -16,8 +16,14 @@ export function WoodSign({ eyebrow, title, style }: Props) {
   return (
     <View style={[styles.sign, style]}>
       <Image source={WOOD_SIGN} resizeMode="stretch" style={[StyleSheet.absoluteFill, styles.signImage]} />
-      {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-      <Text style={styles.title}>{title}</Text>
+      {eyebrow ? (
+        <Text style={styles.eyebrow} numberOfLines={1}>
+          {eyebrow}
+        </Text>
+      ) : null}
+      <Text style={styles.title} numberOfLines={2}>
+        {title}
+      </Text>
     </View>
   );
 }
