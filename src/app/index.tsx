@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { StyleSheet, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
 
 import { StageHub } from '@/components/stage-hub';
@@ -25,6 +25,8 @@ export default function StageSelectScreen() {
   const [daily, setDaily] = useState<DailyState | null>(null);
   /** ホーム画面のタイル下で選ばれているステージ。未選択なら「次に遊ぶステージ」を使う。 */
   const [selectedLevelId, setSelectedLevelId] = useState<string | null>(null);
+  /** 直前に読み込んだ progress。「選択中のステージを今まさにクリアしたか」の判定に使う。 */
+  const progressRef = useRef<Progress>({});
   const today = todayKey();
 
   useFocusEffect(
@@ -32,9 +34,17 @@ export default function StageSelectScreen() {
       let active = true;
       loadProgress().then((p) => {
         if (!active) return;
+        const prevProgress = progressRef.current;
+        progressRef.current = p;
         setProgress(p);
-        // 選んでいたステージをクリア済みにしたら、自動選択（次に遊ぶステージ）に戻す
-        setSelectedLevelId((prev) => (prev && p[prev]?.cleared ? null : prev));
+        // 選んでいたステージを「今まさに」クリア済みにしたときだけ、自動選択（次に遊ぶステージ）に戻す。
+        // 元からクリア済みのステージを選んで見返している場合は、選択を保ったままにする。
+        setSelectedLevelId((prev) => {
+          if (!prev) return prev;
+          const wasCleared = !!prevProgress[prev]?.cleared;
+          const isClearedNow = !!p[prev]?.cleared;
+          return !wasCleared && isClearedNow ? null : prev;
+        });
       });
       loadDaily().then((d) => {
         if (active) setDaily(d);
@@ -67,6 +77,7 @@ export default function StageSelectScreen() {
             <StagePath
               progress={progress}
               clearedCount={clearedCount}
+              initialLevelId={activeLevelId}
               onSelect={(levelId) => {
                 setSelectedLevelId(levelId);
                 setShowStageList(false);

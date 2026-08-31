@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
+import { BackButton } from '@/components/back-button';
 import { Board } from '@/components/board';
 import { ActionButton } from '@/components/hud';
 import { SkyBackground } from '@/components/sky-background';
@@ -279,6 +280,7 @@ export default function EditorScreen() {
 
   return (
     <SkyBackground>
+      <BackButton onPress={() => router.back()} />
       <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.row}>
         <Stepper label="行" value={rows} onChange={setRows} />
@@ -432,6 +434,7 @@ const panel = {
 const styles = StyleSheet.create({
   content: {
     padding: 16,
+    paddingTop: 56,
     gap: 12,
     alignItems: 'center',
     paddingBottom: 60,

@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { BackButton } from '@/components/back-button';
 import { DifficultyMeter } from '@/components/difficulty-meter';
 import { SkyBackground } from '@/components/sky-background';
 import type { Level } from '@/engine';
@@ -34,6 +35,7 @@ export default function MyStagesScreen() {
 
   return (
     <SkyBackground theme="meadow">
+      <BackButton onPress={() => router.back()} />
       <ScrollView contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
         <View style={styles.world}>
           <View style={styles.worldHeader}>
@@ -101,6 +103,7 @@ export default function MyStagesScreen() {
 const styles = StyleSheet.create({
   pageContent: {
     padding: 18,
+    paddingTop: 56,
     paddingBottom: 48,
     gap: 12,
     maxWidth: 640,

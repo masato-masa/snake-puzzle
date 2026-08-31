@@ -14,6 +14,7 @@ import {
   type ScrollView,
 } from 'react-native';
 
+import { BackButton } from '@/components/back-button';
 import { starCount } from '@/components/clear-overlay';
 import { DifficultyMeter } from '@/components/difficulty-meter';
 import { SkyBackground } from '@/components/sky-background';
@@ -59,7 +60,6 @@ const MAX_FOCUS_SCALE = 3.2;
 /** 中央のノードが最大まで拡大しても隣のノードと重ならないための余白。 */
 const MIN_GAP = 40;
 const GAP_MARGIN = 16;
-const PATH_THICKNESS = 10;
 /** 「中央」を画面の真ん中よりこれだけ上にずらす（見た目の重心が下寄りに感じるため）。 */
 const CENTER_OFFSET = 48;
 /** 慣性が止まったとみなすまでの無操作時間。onMomentumScrollEnd が web で発火しないことがあるための保険。 */
@@ -80,6 +80,8 @@ type Props = {
   onSelect: (levelId: string) => void;
   /** タイル画面からかぶせて開いているときだけ渡す。戻るボタンを出す。 */
   onClose?: () => void;
+  /** 開いた瞬間に中央へ持ってくるステージ。ホーム画面で選ばれていたステージを渡す。 */
+  initialLevelId?: string;
 };
 
 /**
@@ -93,7 +95,7 @@ type Props = {
  * 切り抜いたまま表示し、右下の番号バッジの色でクリア状況（金/銀/銅/現在地/ロック）を示す。
  * タイル画面（StageHub）からかぶせて開く形で使うため、onClose を渡すと戻るボタンが出る。
  */
-export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) {
+export function StagePath({ progress, clearedCount, onSelect, onClose, initialLevelId }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isCleared = useCallback((id: string) => !!progress[id]?.cleared, [progress]);
   const displayLevels = useMemo(() => [...LEVELS].reverse(), []);
@@ -103,10 +105,13 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
   );
   // 表示スロットは「？」ノード(0) + 実ステージ(1..displayLevels.length)。
   const totalSlots = displayLevels.length + 1;
-  const continueSlot = useMemo(
-    () => Math.max(1, displayLevels.findIndex((l) => l.id === continueLevel.id) + 1),
-    [displayLevels, continueLevel],
-  );
+  // 開いた瞬間に中央へ持ってくるステージ。ホーム画面で選ばれていたものを優先し、
+  // 見つからなければ「次に遊ぶステージ」にする。
+  const initialSlot = useMemo(() => {
+    const found = initialLevelId ? displayLevels.findIndex((l) => l.id === initialLevelId) : -1;
+    if (found >= 0) return found + 1;
+    return Math.max(1, displayLevels.findIndex((l) => l.id === continueLevel.id) + 1);
+  }, [displayLevels, initialLevelId, continueLevel]);
   /** 中央に来たときの拡大率。ホーム画面の大タイル（画面幅の 72% ほど）に近づける。 */
   const focusScale = Math.min(
     MAX_FOCUS_SCALE,
@@ -133,7 +138,7 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
   const [containerHeight, setContainerHeight] = useState(() =>
     Math.max(0, windowHeight - HEADER_HEIGHT_ESTIMATE),
   );
-  const [focusedSlot, setFocusedSlot] = useState(continueSlot);
+  const [focusedSlot, setFocusedSlot] = useState(initialSlot);
   const scrollRef = useRef<ScrollView>(null);
   const scrolledOnce = useRef(false);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -144,12 +149,12 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
     if (measured > 0) setContainerHeight(measured);
   }, []);
 
-  // 初回だけ、「次に遊ぶステージ」が中央に来る位置まで自動スクロールする
+  // 初回だけ、選ばれていたステージが中央に来る位置まで自動スクロールする
   useEffect(() => {
     if (containerHeight <= 0 || scrolledOnce.current) return;
     scrolledOnce.current = true;
-    scrollRef.current?.scrollTo({ y: scrollYForSlot(continueSlot), animated: false });
-  }, [containerHeight, continueSlot, scrollYForSlot]);
+    scrollRef.current?.scrollTo({ y: scrollYForSlot(initialSlot), animated: false });
+  }, [containerHeight, initialSlot, scrollYForSlot]);
 
   const snapToNearest = useCallback(
     (offsetY: number) => {
@@ -206,16 +211,11 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
   const padding = containerHeight > 0 ? Math.max(0, containerHeight / 2 - NODE_SIZE / 2) : 0;
   // CENTER_OFFSET ぶん上にずらしているので、最後のスロットまで届くよう下側の余白を追加で確保する。
   const paddingBottom = padding + CENTER_OFFSET;
-  const trackLength = (totalSlots - 1) * nodeHeight;
 
   return (
     <SkyBackground theme={focusedWorld?.theme ?? 'meadow'}>
       <View style={styles.ribbonWrap}>
-        {onClose ? (
-          <Pressable onPress={onClose} hitSlop={10} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← もどる</Text>
-          </Pressable>
-        ) : null}
+        {onClose ? <BackButton onPress={onClose} /> : null}
         <View style={styles.ribbon}>
           <Image
             source={WOOD_SIGN}
@@ -242,16 +242,6 @@ export function StagePath({ progress, clearedCount, onSelect, onClose }: Props) 
           onMomentumScrollEnd={onScrollSettled}
           onScrollEndDrag={onScrollSettled}
           contentContainerStyle={{ paddingTop: padding, paddingBottom, alignItems: 'center' }}>
-          {/*
-            position:absolute の子は、paddingVertical を無視して「パディング込みの外枠」の
-            top:0 に置かれる（flow 側の子はパディング分だけ内側から始まる）。
-            なので top には明示的に padding を足して、ノードの並びと基準点をそろえる。
-          */}
-          <View
-            pointerEvents="none"
-            style={{ position: 'absolute', top: padding, left: 0, right: 0, height: totalSlots * nodeHeight }}>
-            <View style={[styles.pathTrack, { top: nodeHeight / 2, height: trackLength }]} />
-          </View>
           <MysteryNode
             targetScrollY={scrollYForSlot(0)}
             focusScale={focusScale}
@@ -412,25 +402,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  backButton: {
-    position: 'absolute',
-    top: 18,
-    left: 16,
-    zIndex: 1,
-    backgroundColor: colors.panel,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: colors.panelBorder,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    ...ui.shadow,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  backButtonText: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '900',
-  },
   ribbon: {
     position: 'relative',
     paddingVertical: 10,
@@ -472,17 +443,6 @@ const styles = StyleSheet.create({
   },
   listArea: {
     flex: 1,
-  },
-  /** ノードの列の中央を貫く、まっすぐな道。 */
-  pathTrack: {
-    position: 'absolute',
-    left: '50%',
-    marginLeft: -PATH_THICKNESS / 2,
-    width: PATH_THICKNESS,
-    borderRadius: PATH_THICKNESS / 2,
-    backgroundColor: colors.medalGold,
-    borderWidth: 2,
-    borderColor: colors.medalGoldDark,
   },
   nodeWrap: {
     position: 'relative',

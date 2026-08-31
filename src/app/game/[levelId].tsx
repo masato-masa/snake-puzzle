@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { shouldShowInterstitial } from '@/ads/ads';
 import { AdInterstitial } from '@/components/ad-interstitial';
+import { BackButton } from '@/components/back-button';
 import { GameView } from '@/components/game-view';
 import { SkyBackground } from '@/components/sky-background';
 import type { Level } from '@/engine';
@@ -37,6 +38,7 @@ export default function GameScreen() {
     return (
       <SkyBackground>
         <Stack.Screen options={{ title: stillLooking ? '読み込み中…' : 'ステージが見つかりません' }} />
+        <BackButton onPress={() => router.back()} />
         <View style={styles.missing}>
           <Text style={styles.missingText}>
             {stillLooking ? '読み込み中…' : `ステージ「${levelId}」は存在しません。`}
@@ -78,6 +80,7 @@ export default function GameScreen() {
             : undefined
         }
         onList={() => router.replace('/')}
+        onBack={() => router.back()}
       />
       {showAd ? (
         <AdInterstitial

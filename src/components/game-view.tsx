@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
 import { AdInterstitial } from '@/components/ad-interstitial';
+import { BackButton } from '@/components/back-button';
 import { Board } from '@/components/board';
 import { Celebration } from '@/components/celebration';
 import { ClearOverlay } from '@/components/clear-overlay';
@@ -39,6 +40,8 @@ type Props = {
   onNext?: () => void;
   nextLabel?: string;
   onList: () => void;
+  /** 画面左上の「戻る」ボタン。ネイティブヘッダーを使わないので常に表示する。 */
+  onBack: () => void;
   /** クリア画面に足す一言（デイリーの連続日数など）。 */
   clearNote?: string;
 };
@@ -69,6 +72,7 @@ export function GameView({
   onNext,
   nextLabel,
   onList,
+  onBack,
   clearNote,
 }: Props) {
   /**
@@ -272,6 +276,7 @@ export function GameView({
 
   return (
     <SkyBackground theme={theme}>
+      <BackButton onPress={onBack} />
       <View style={styles.screen}>
         <View style={styles.boardArea} onLayout={onBoardAreaLayout}>
           {area.width > 8 && area.height > 8 ? (

@@ -2,6 +2,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+import { BackButton } from '@/components/back-button';
 import { GameView } from '@/components/game-view';
 import { ActionButton } from '@/components/hud';
 import { SkyBackground } from '@/components/sky-background';
@@ -30,6 +31,7 @@ export default function DailyScreen() {
     return (
       <SkyBackground theme="night">
         <Stack.Screen options={{ title: 'きょうのもんだい' }} />
+        <BackButton onPress={() => router.back()} />
         <View style={styles.center}>
           <View style={styles.card}>
             {failed ? (
@@ -61,6 +63,7 @@ export default function DailyScreen() {
         }}
         clearNote="きょうのもんだい たっせい！"
         onList={() => router.replace('/')}
+        onBack={() => router.back()}
       />
     </>
   );

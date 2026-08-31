@@ -21,9 +21,7 @@ export default function RootLayout() {
       <StatusBar style="light" />
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: colors.wood },
-          headerTintColor: colors.textOnDark,
-          headerTitleStyle: { fontWeight: '900' },
+          headerShown: false,
           contentStyle: { backgroundColor: colors.skyBottom },
         }}>
         <Stack.Screen name="index" options={{ title: 'ヘビパズル' }} />
