@@ -64,6 +64,8 @@ const GAP_MARGIN = 16;
 const CENTER_OFFSET = 48;
 /** 慣性が止まったとみなすまでの無操作時間。onMomentumScrollEnd が web で発火しないことがあるための保険。 */
 const SNAP_DEBOUNCE_MS = 120;
+/** 指を離した後、この速さ（px/ms）を下回ったら「止まるのを待たずに」スナップを始める。 */
+const SNAP_VELOCITY_THRESHOLD = 0.15;
 
 const WOOD_SIGN = require('@/assets/images/ui/wood-sign.png');
 
@@ -143,6 +145,9 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
   const scrolledOnce = useRef(false);
   const scrollY = useRef(new Animated.Value(0)).current;
   const snapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 指がまだ触れているあいだ（ドラッグ中）は、遅い動きでもスナップしない。 */
+  const isDraggingRef = useRef(false);
+  const lastScrollRef = useRef<{ y: number; t: number } | null>(null);
 
   const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
     const measured = e.nativeEvent.layout.height;
@@ -172,13 +177,40 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
       const clamped = Math.max(0, Math.min(totalSlots - 1, slot));
       setFocusedSlot((prev) => (prev === clamped ? prev : clamped));
 
-      // onMomentumScrollEnd / onScrollEndDrag が発火しない環境（web で確認済み）でも
-      // 確実に止まったと分かるよう、スクロールイベントが一定時間途切れたらスナップする。
+      // 指を離した後（ドラッグ中でない）、速さが閾値を下回ったら、慣性が止まりきるのを
+      // 待たずにその場でスナップを始める。停止を待つより体感が速い。
+      const now = Date.now();
+      const last = lastScrollRef.current;
+      lastScrollRef.current = { y, t: now };
+      if (!isDraggingRef.current && last) {
+        const dt = now - last.t;
+        const velocity = dt > 0 ? Math.abs(y - last.y) / dt : 0;
+        if (velocity < SNAP_VELOCITY_THRESHOLD) {
+          if (snapTimer.current) {
+            clearTimeout(snapTimer.current);
+            snapTimer.current = null;
+          }
+          snapToNearest(y);
+          return;
+        }
+      }
+
+      // 上の速度判定が発火しなかった場合の保険。スクロールイベントが一定時間
+      // 途切れたら（＝止まった、または onMomentumScrollEnd 等が発火しない環境でも）スナップする。
       if (snapTimer.current) clearTimeout(snapTimer.current);
       snapTimer.current = setTimeout(() => snapToNearest(y), SNAP_DEBOUNCE_MS);
     },
     [nodeGap, nodeHeight, snapToNearest, totalSlots],
   );
+
+  const onScrollBeginDrag = useCallback(() => {
+    isDraggingRef.current = true;
+    lastScrollRef.current = null;
+    if (snapTimer.current) {
+      clearTimeout(snapTimer.current);
+      snapTimer.current = null;
+    }
+  }, []);
 
   useEffect(() => () => {
     if (snapTimer.current) clearTimeout(snapTimer.current);
@@ -197,6 +229,7 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
   // 発火したときは即座にスナップし、保留中のデバウンスは打ち消す。
   const onScrollSettled = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      isDraggingRef.current = false;
       if (snapTimer.current) {
         clearTimeout(snapTimer.current);
         snapTimer.current = null;
@@ -239,6 +272,7 @@ export function StagePath({ progress, clearedCount, onSelect, onClose, initialLe
           showsVerticalScrollIndicator={false}
           scrollEventThrottle={16}
           onScroll={onScroll}
+          onScrollBeginDrag={onScrollBeginDrag}
           onMomentumScrollEnd={onScrollSettled}
           onScrollEndDrag={onScrollSettled}
           contentContainerStyle={{ paddingTop: padding, paddingBottom, alignItems: 'center' }}>
