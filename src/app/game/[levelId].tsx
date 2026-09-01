@@ -2,6 +2,9 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { shouldShowInterstitial } from '@/ads/ads';
+import { AdInterstitial } from '@/components/ad-interstitial';
+import { BackButton } from '@/components/back-button';
 import { GameView } from '@/components/game-view';
 import { SkyBackground } from '@/components/sky-background';
 import type { Level } from '@/engine';
@@ -35,6 +38,7 @@ export default function GameScreen() {
     return (
       <SkyBackground>
         <Stack.Screen options={{ title: stillLooking ? '読み込み中…' : 'ステージが見つかりません' }} />
+        <BackButton onPress={() => router.back()} />
         <View style={styles.missing}>
           <Text style={styles.missingText}>
             {stillLooking ? '読み込み中…' : `ステージ「${levelId}」は存在しません。`}
@@ -45,9 +49,15 @@ export default function GameScreen() {
   }
 
   const nextLevel = getNextLevel(level.id);
+  const [showAd, setShowAd] = useState(false);
+
+  const goToNext = () => {
+    if (!nextLevel) return;
+    router.replace({ pathname: '/game/[levelId]', params: { levelId: nextLevel.id } });
+  };
 
   return (
-    <>
+    <View style={styles.screen}>
       <Stack.Screen options={{ title: displayName(level) }} />
       {/* level が変わったら GameView ごと作り直して状態を初期化する */}
       <GameView
@@ -60,20 +70,34 @@ export default function GameScreen() {
         }}
         onNext={
           nextLevel
-            ? () =>
-                router.replace({
-                  pathname: '/game/[levelId]',
-                  params: { levelId: nextLevel.id },
-                })
+            ? () => {
+                if (shouldShowInterstitial()) {
+                  setShowAd(true);
+                } else {
+                  goToNext();
+                }
+              }
             : undefined
         }
         onList={() => router.replace('/')}
+        onBack={() => router.back()}
       />
-    </>
+      {showAd ? (
+        <AdInterstitial
+          onClose={() => {
+            setShowAd(false);
+            goToNext();
+          }}
+        />
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
   missing: {
     flex: 1,
     alignItems: 'center',

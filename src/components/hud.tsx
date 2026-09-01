@@ -9,9 +9,18 @@ type Props = {
   onUndo: () => void;
   onReset: () => void;
   onHint?: () => void;
+  hintLabel?: string;
 };
 
-export function HUD({ moves, parMoves, canUndo, onUndo, onReset, onHint }: Props) {
+export function HUD({
+  moves,
+  parMoves,
+  canUndo,
+  onUndo,
+  onReset,
+  onHint,
+  hintLabel = 'ヒント',
+}: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.stats}>
@@ -21,7 +30,7 @@ export function HUD({ moves, parMoves, canUndo, onUndo, onReset, onHint }: Props
       <View style={styles.buttons}>
         <ActionButton label="1手もどす" onPress={onUndo} disabled={!canUndo} />
         <ActionButton label="やりなおす" onPress={onReset} />
-        {onHint ? <ActionButton label="ヒント" onPress={onHint} tone="primary" /> : null}
+        {onHint ? <ActionButton label={hintLabel} onPress={onHint} tone="primary" /> : null}
       </View>
     </View>
   );

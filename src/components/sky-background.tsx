@@ -1,33 +1,53 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, View } from 'react-native';
+import { useEffect } from 'react';
+import { Image, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 
 import type { WorldTheme } from '@/levels/levels';
-import { colors } from '@/theme';
+import { TILE_IMAGES } from '@/lib/tile-images';
 
-const CLOUDS = [
-  { top: '8%', left: '6%', size: 74, opacity: 0.9 },
-  { top: '18%', left: '68%', size: 96, opacity: 0.75 },
-  { top: '58%', left: '-4%', size: 62, opacity: 0.6 },
-  { top: '72%', left: '76%', size: 84, opacity: 0.55 },
-] as const;
+const BACKGROUND_IMAGES: Record<WorldTheme, ImageSourcePropType> = {
+  meadow: require('@/assets/images/backgrounds/meadow-grass.png'),
+  desert: require('@/assets/images/backgrounds/desert.png'),
+  cave: require('@/assets/images/backgrounds/cave.png'),
+  ice: require('@/assets/images/backgrounds/ice.png'),
+  night: require('@/assets/images/backgrounds/night.png'),
+};
 
-const STARS = [
-  { top: '7%', left: '12%', size: 4 },
-  { top: '12%', left: '46%', size: 3 },
-  { top: '5%', left: '78%', size: 5 },
-  { top: '22%', left: '24%', size: 3 },
-  { top: '18%', left: '88%', size: 4 },
-  { top: '31%', left: '62%', size: 3 },
-  { top: '44%', left: '8%', size: 4 },
-  { top: '68%', left: '84%', size: 3 },
-  { top: '80%', left: '18%', size: 4 },
-  { top: '88%', left: '58%', size: 3 },
-] as const;
+/**
+ * 章の背景やタイルは 1 枚 1MB を超えることがあり、初めて表示するときだけ
+ * 読み込みが間に合わず、水色のフォールバックが一瞬見えてしまう。
+ * とはいえ全章ぶん（5章 × 背景+タイルで計 11MB ほど）を一度に先読みすると、
+ * 今まさに表示したい章の画像と帯域を取り合ってしまい、初回表示そのものが
+ * 遅くなる。そこで、今使う章だけ即座に先読みし、残りの章は少し間を置いて
+ * （今の画面が落ち着いてから）バックグラウンドで先読みする。
+ */
+/** require() した画像は web だと文字列 URL、{uri} オブジェクトのどちらの形でも来うる。 */
+const uriOf = (source: ImageSourcePropType): string | null => {
+  if (typeof source === 'string') return source;
+  if (source && typeof source === 'object' && 'uri' in source && typeof source.uri === 'string') {
+    return source.uri;
+  }
+  return null;
+};
 
-const GRADIENTS: Record<WorldTheme, readonly [string, string, string]> = {
-  meadow: [colors.skyTop, colors.skyMid, colors.skyBottom],
-  cave: [colors.caveTop, colors.caveMid, colors.caveBottom],
-  night: [colors.nightTop, colors.nightMid, colors.nightBottom],
+const preloadedThemes = new Set<WorldTheme>();
+const preloadTheme = (theme: WorldTheme) => {
+  if (preloadedThemes.has(theme)) return;
+  preloadedThemes.add(theme);
+  const bgUri = uriOf(BACKGROUND_IMAGES[theme]);
+  const tileUri = uriOf(TILE_IMAGES[theme]);
+  if (bgUri) Image.prefetch(bgUri);
+  if (tileUri) Image.prefetch(tileUri);
+};
+
+/** 他の章ぶんの先読みは一度だけ予約する。 */
+let othersScheduled = false;
+const REMAINING_PRELOAD_DELAY_MS = 2000;
+const scheduleRemainingPreload = () => {
+  if (othersScheduled) return;
+  othersScheduled = true;
+  setTimeout(() => {
+    (Object.keys(BACKGROUND_IMAGES) as WorldTheme[]).forEach(preloadTheme);
+  }, REMAINING_PRELOAD_DELAY_MS);
 };
 
 /** 章ごとに表情が変わる背景。子要素はこの上に重ねる。 */
@@ -38,95 +58,18 @@ export function SkyBackground({
   children: React.ReactNode;
   theme?: WorldTheme;
 }) {
+  useEffect(() => {
+    preloadTheme(theme);
+    scheduleRemainingPreload();
+  }, [theme]);
+
   return (
     <View style={styles.root}>
-      <LinearGradient
-        colors={GRADIENTS[theme]}
-        locations={[0, 0.55, 1]}
-        style={StyleSheet.absoluteFill}
+      <Image
+        source={BACKGROUND_IMAGES[theme]}
+        resizeMode="cover"
+        style={[StyleSheet.absoluteFill, styles.backgroundImage]}
       />
-
-      {theme === 'meadow'
-        ? CLOUDS.map((cloud, i) => (
-            <View
-              key={i}
-              pointerEvents="none"
-              style={[
-                styles.cloud,
-                {
-                  top: cloud.top,
-                  left: cloud.left,
-                  width: cloud.size,
-                  height: cloud.size * 0.44,
-                  borderRadius: cloud.size * 0.22,
-                  opacity: cloud.opacity,
-                },
-              ]}>
-              <View
-                style={[
-                  styles.puff,
-                  {
-                    width: cloud.size * 0.5,
-                    height: cloud.size * 0.5,
-                    borderRadius: cloud.size * 0.25,
-                    left: cloud.size * 0.16,
-                    top: -cloud.size * 0.2,
-                  },
-                ]}
-              />
-              <View
-                style={[
-                  styles.puff,
-                  {
-                    width: cloud.size * 0.38,
-                    height: cloud.size * 0.38,
-                    borderRadius: cloud.size * 0.19,
-                    left: cloud.size * 0.5,
-                    top: -cloud.size * 0.12,
-                  },
-                ]}
-              />
-            </View>
-          ))
-        : null}
-
-      {theme === 'cave'
-        ? CLOUDS.map((rock, i) => (
-            <View
-              key={i}
-              pointerEvents="none"
-              style={{
-                position: 'absolute',
-                top: rock.top,
-                left: rock.left,
-                width: rock.size * 1.1,
-                height: rock.size * 0.6,
-                borderRadius: rock.size * 0.18,
-                backgroundColor: colors.caveRock,
-                opacity: 0.8,
-                transform: [{ rotate: i % 2 ? '6deg' : '-8deg' }],
-              }}
-            />
-          ))
-        : null}
-
-      {theme === 'night'
-        ? STARS.map((star, i) => (
-            <View
-              key={i}
-              pointerEvents="none"
-              style={{
-                position: 'absolute',
-                top: star.top,
-                left: star.left,
-                width: star.size,
-                height: star.size,
-                borderRadius: star.size / 2,
-                backgroundColor: colors.star,
-              }}
-            />
-          ))
-        : null}
 
       {children}
     </View>
@@ -137,12 +80,8 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  cloud: {
-    position: 'absolute',
-    backgroundColor: colors.cloud,
-  },
-  puff: {
-    position: 'absolute',
-    backgroundColor: colors.cloud,
+  backgroundImage: {
+    width: '100%',
+    height: '100%',
   },
 });

@@ -21,15 +21,14 @@ export default function RootLayout() {
       <StatusBar style="light" />
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: colors.wood },
-          headerTintColor: colors.textOnDark,
-          headerTitleStyle: { fontWeight: '900' },
+          headerShown: false,
           contentStyle: { backgroundColor: colors.skyBottom },
         }}>
         <Stack.Screen name="index" options={{ title: 'ヘビパズル' }} />
         <Stack.Screen name="game/[levelId]" options={{ title: '' }} />
-        <Stack.Screen name="daily" options={{ title: 'きょうのもんだい' }} />
+        <Stack.Screen name="my-stages" options={{ title: 'マイステージ' }} />
         <Stack.Screen name="editor" options={{ title: 'ステージエディタ' }} />
+        <Stack.Screen name="test" options={{ title: 'テストツール' }} />
       </Stack>
     </ThemeProvider>
   );

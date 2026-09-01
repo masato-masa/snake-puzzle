@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
+import { AdInterstitial } from '@/components/ad-interstitial';
+import { BackButton } from '@/components/back-button';
 import { Board } from '@/components/board';
 import { Celebration } from '@/components/celebration';
 import { ClearOverlay } from '@/components/clear-overlay';
+import { DifficultyMeter } from '@/components/difficulty-meter';
 import { HUD } from '@/components/hud';
 import { SkyBackground } from '@/components/sky-background';
 import { moveDurationFor } from '@/components/snake-view';
+import { WoodSign } from '@/components/wood-sign';
 import {
   coveredTargetCount,
   createGameState,
@@ -20,6 +24,7 @@ import {
   type Move,
   type Pos,
 } from '@/engine';
+import { displayName, worldOf } from '@/levels/levels';
 import type { WorldTheme } from '@/levels/levels';
 import {
   feedbackBlocked,
@@ -38,15 +43,10 @@ type Props = {
   onNext?: () => void;
   nextLabel?: string;
   onList: () => void;
+  /** 画面左上の「戻る」ボタン。ネイティブヘッダーを使わないので常に表示する。 */
+  onBack: () => void;
   /** クリア画面に足す一言（デイリーの連続日数など）。 */
   clearNote?: string;
-};
-
-const KEY_TO_DIR: Record<string, Dir> = {
-  ArrowUp: 'up',
-  ArrowDown: 'down',
-  ArrowLeft: 'left',
-  ArrowRight: 'right',
 };
 
 /**
@@ -58,6 +58,12 @@ type Phase = 'playing' | 'celebrating' | 'cleared';
 
 const CELEBRATION_MS = 1100;
 
+/** 戻るボタン（左上絶対配置）の高さぶん。看板をその下に置くための paddingTop。 */
+const HEADER_SIGN_TOP = 62;
+
+/** 無料で使えるヒントの回数。これを超えたら広告を見ると使い放題になる。 */
+const FREE_HINT_LIMIT = 3;
+
 export function GameView({
   level,
   theme = 'meadow',
@@ -65,6 +71,7 @@ export function GameView({
   onNext,
   nextLabel,
   onList,
+  onBack,
   clearNote,
 }: Props) {
   /**
@@ -74,11 +81,12 @@ export function GameView({
   const [area, setArea] = useState({ width: 0, height: 0 });
 
   const [state, setState] = useState(() => createGameState(level));
-  const [selectedId, setSelectedId] = useState(level.snakes[0].id);
   const [bestMoves, setBestMoves] = useState<number | undefined>(undefined);
   const [phase, setPhase] = useState<Phase>('playing');
   const [hint, setHint] = useState<Move | null>(null);
   const [hintCount, setHintCount] = useState(0);
+  const [hintsUnlocked, setHintsUnlocked] = useState(false);
+  const [showHintAd, setShowHintAd] = useState(false);
   const [bump, setBump] = useState<{ snakeId: string; token: number } | null>(null);
   const [trail, setTrail] = useState<{
     snakeId: string;
@@ -94,8 +102,6 @@ export function GameView({
   stateRef.current = state;
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
-  const selectedIdRef = useRef(selectedId);
-  selectedIdRef.current = selectedId;
 
   // 盤面の外枠は 1 マスの 0.28 倍ずつ内側に余白を取るので、その分を見込んで逆算する
   const fit = (space: number, count: number) => (space - 12) / (count + 0.6);
@@ -141,24 +147,6 @@ export function GameView({
     feedbackMove();
   }, []);
 
-  /** 盤面をタップしたとき。選んでいるヘビの頭から見た向きへ動かす。 */
-  const handleCellPress = useCallback(
-    (pos: Pos) => {
-      const snake = stateRef.current.snakes.find((s) => s.id === selectedIdRef.current);
-      if (!snake) return;
-
-      const head = snake.body[0];
-      const dr = pos.r - head.r;
-      const dc = pos.c - head.c;
-      if (dr === 0 && dc === 0) return;
-
-      const dir: Dir =
-        Math.abs(dc) >= Math.abs(dr) ? (dc > 0 ? 'right' : 'left') : dr > 0 ? 'down' : 'up';
-      handleDirection(snake.id, dir);
-    },
-    [handleDirection],
-  );
-
   const handleUndo = useCallback(() => {
     setPhase('playing');
     setHint(null);
@@ -177,9 +165,14 @@ export function GameView({
     setState((prev) => reset(prev));
   }, []);
 
-  /** ソルバーに今の盤面を解かせて、正解の 1 手だけ見せる。 */
+  /** ソルバーに今の盤面を解かせて、正解の 1 手だけ見せる。無料回数を使い切ったら広告を挟む。 */
   const handleHint = useCallback(() => {
     if (phaseRef.current !== 'playing') return;
+
+    if (hintCount >= FREE_HINT_LIMIT && !hintsUnlocked) {
+      setShowHintAd(true);
+      return;
+    }
 
     const probe: Level = { ...level, snakes: stateRef.current.snakes };
     const result = solve(probe, { maxMoves: 20, maxStates: 200_000 });
@@ -195,7 +188,7 @@ export function GameView({
     setHintCount((n) => n + 1);
     setNotice(null);
     feedbackSelect();
-  }, [level]);
+  }, [level, hintCount, hintsUnlocked]);
 
   /** ヘビが動ききってから演出に入る。 */
   const handleSettled = useCallback(() => {
@@ -236,20 +229,6 @@ export function GameView({
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Tab' && level.snakes.length > 1) {
-        event.preventDefault();
-        setSelectedId((current) => {
-          const index = level.snakes.findIndex((s) => s.id === current);
-          return level.snakes[(index + 1) % level.snakes.length].id;
-        });
-        return;
-      }
-      const dir = KEY_TO_DIR[event.key];
-      if (dir) {
-        event.preventDefault();
-        handleDirection(selectedId, dir);
-        return;
-      }
       if (event.key === 'z') handleUndo();
       if (event.key === 'r') handleReset();
       if (event.key === 'h') handleHint();
@@ -257,10 +236,17 @@ export function GameView({
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleDirection, handleUndo, handleReset, handleHint, level.snakes, selectedId]);
+  }, [handleUndo, handleReset, handleHint]);
+
+  const world = worldOf(level.id);
 
   return (
     <SkyBackground theme={theme}>
+      <View style={styles.header}>
+        <BackButton onPress={onBack} />
+        <WoodSign eyebrow={world?.name ?? ''} title={displayName(level)} style={styles.headerSign} />
+        <DifficultyMeter level={level.difficulty ?? 1} />
+      </View>
       <View style={styles.screen}>
         <View style={styles.boardArea} onLayout={onBoardAreaLayout}>
           {area.width > 8 && area.height > 8 ? (
@@ -268,15 +254,12 @@ export function GameView({
               level={level}
               snakes={state.snakes}
               cell={cell}
-              selectedId={selectedId}
               interactive={phase === 'playing'}
-              onSelect={setSelectedId}
               onDirection={handleDirection}
               onSettled={handleSettled}
               hint={hint}
               bump={bump}
               trail={trail}
-              onCellPress={phase === 'playing' ? handleCellPress : undefined}
             />
           ) : null}
           {phase === 'celebrating' ? <Celebration /> : null}
@@ -296,8 +279,27 @@ export function GameView({
             onUndo={handleUndo}
             onReset={handleReset}
             onHint={handleHint}
+            hintLabel={
+              hintsUnlocked
+                ? 'ヒント'
+                : hintCount >= FREE_HINT_LIMIT
+                  ? '広告でヒント'
+                  : `ヒント (${FREE_HINT_LIMIT - hintCount})`
+            }
           />
         </View>
+
+        {showHintAd ? (
+          <AdInterstitial
+            title="ヒント使い放題"
+            body={'広告を見ると、このステージの間\nヒントが使い放題になります。'}
+            closeLabel="広告を見て解放"
+            onClose={() => {
+              setShowHintAd(false);
+              setHintsUnlocked(true);
+            }}
+          />
+        ) : null}
 
         {phase === 'cleared' ? (
           <ClearOverlay
@@ -319,6 +321,22 @@ export function GameView({
 }
 
 const styles = StyleSheet.create({
+  /**
+   * 戻るボタン（左上に絶対配置）と看板が重ならないよう、看板は
+   * ボタンの下に来る位置まで paddingTop を確保してから並べる（同じ行に
+   * 横並びで置くと、看板を大きく・タイトルを長く保てなくなるため）。
+   */
+  header: {
+    position: 'relative',
+    paddingTop: HEADER_SIGN_TOP,
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerSign: {
+    maxWidth: '100%',
+  },
   screen: {
     flex: 1,
     alignItems: 'stretch',
