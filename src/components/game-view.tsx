@@ -49,13 +49,6 @@ type Props = {
   clearNote?: string;
 };
 
-const KEY_TO_DIR: Record<string, Dir> = {
-  ArrowUp: 'up',
-  ArrowDown: 'down',
-  ArrowLeft: 'left',
-  ArrowRight: 'right',
-};
-
 /**
  * playing     … 操作できる
  * celebrating … ヘビが移動しきった後の演出中（操作は止める）
@@ -88,7 +81,6 @@ export function GameView({
   const [area, setArea] = useState({ width: 0, height: 0 });
 
   const [state, setState] = useState(() => createGameState(level));
-  const [selectedId, setSelectedId] = useState(level.snakes[0].id);
   const [bestMoves, setBestMoves] = useState<number | undefined>(undefined);
   const [phase, setPhase] = useState<Phase>('playing');
   const [hint, setHint] = useState<Move | null>(null);
@@ -110,8 +102,6 @@ export function GameView({
   stateRef.current = state;
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
-  const selectedIdRef = useRef(selectedId);
-  selectedIdRef.current = selectedId;
 
   // 盤面の外枠は 1 マスの 0.28 倍ずつ内側に余白を取るので、その分を見込んで逆算する
   const fit = (space: number, count: number) => (space - 12) / (count + 0.6);
@@ -156,24 +146,6 @@ export function GameView({
     setState(result.state);
     feedbackMove();
   }, []);
-
-  /** 盤面をタップしたとき。選んでいるヘビの頭から見た向きへ動かす。 */
-  const handleCellPress = useCallback(
-    (pos: Pos) => {
-      const snake = stateRef.current.snakes.find((s) => s.id === selectedIdRef.current);
-      if (!snake) return;
-
-      const head = snake.body[0];
-      const dr = pos.r - head.r;
-      const dc = pos.c - head.c;
-      if (dr === 0 && dc === 0) return;
-
-      const dir: Dir =
-        Math.abs(dc) >= Math.abs(dr) ? (dc > 0 ? 'right' : 'left') : dr > 0 ? 'down' : 'up';
-      handleDirection(snake.id, dir);
-    },
-    [handleDirection],
-  );
 
   const handleUndo = useCallback(() => {
     setPhase('playing');
@@ -257,20 +229,6 @@ export function GameView({
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Tab' && level.snakes.length > 1) {
-        event.preventDefault();
-        setSelectedId((current) => {
-          const index = level.snakes.findIndex((s) => s.id === current);
-          return level.snakes[(index + 1) % level.snakes.length].id;
-        });
-        return;
-      }
-      const dir = KEY_TO_DIR[event.key];
-      if (dir) {
-        event.preventDefault();
-        handleDirection(selectedId, dir);
-        return;
-      }
       if (event.key === 'z') handleUndo();
       if (event.key === 'r') handleReset();
       if (event.key === 'h') handleHint();
@@ -278,7 +236,7 @@ export function GameView({
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleDirection, handleUndo, handleReset, handleHint, level.snakes, selectedId]);
+  }, [handleUndo, handleReset, handleHint]);
 
   const world = worldOf(level.id);
 
@@ -296,15 +254,12 @@ export function GameView({
               level={level}
               snakes={state.snakes}
               cell={cell}
-              selectedId={selectedId}
               interactive={phase === 'playing'}
-              onSelect={setSelectedId}
               onDirection={handleDirection}
               onSettled={handleSettled}
               hint={hint}
               bump={bump}
               trail={trail}
-              onCellPress={phase === 'playing' ? handleCellPress : undefined}
             />
           ) : null}
           {phase === 'celebrating' ? <Celebration /> : null}
