@@ -3,7 +3,7 @@ import { Animated, Easing, PanResponder, StyleSheet, View } from 'react-native';
 
 import { bodyAfterPath, isAdjacent, posEq, type Dir, type Pos, type Snake } from '@/engine';
 import { bodyTrack, segmentCells } from '@/lib/snake-track';
-import { skinFor, type SnakeSkin } from '@/theme';
+import { colors, skinFor, type SnakeSkin } from '@/theme';
 
 /** 直前の移動で頭が通ったマス。胴体がこの軌跡をなぞる。 */
 export type Trail = { path: Pos[]; token: number };
@@ -230,6 +230,31 @@ export function SnakeView({
     });
   }, [snake.body, snake.id, progress]);
 
+  // 選ばれているあいだ、頭のまわりの光をふわふわ点滅させて「今このヘビが選ばれている」を目立たせる
+  const glow = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!(showSelection && selected)) return;
+    glow.setValue(0);
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glow, {
+          toValue: 1,
+          duration: 620,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(glow, {
+          toValue: 0,
+          duration: 620,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [showSelection, selected, glow]);
+
   useEffect(() => {
     if (!bumpToken) return;
     Animated.sequence([
@@ -314,6 +339,9 @@ export function SnakeView({
     ];
   };
 
+  // 複数匹いるときは、選ばれていないヘビを少し薄くして「今どれを操作できるか」を目立たせる
+  const dimmed = showSelection && !selected;
+
   return (
     <>
       {/* 1 パス目: 輪郭。全パーツを一度に描くので、体の外周だけが線に見える */}
@@ -330,6 +358,7 @@ export function SnakeView({
                 height: size,
                 borderRadius: piece.radius + outline,
                 backgroundColor: skin.dark,
+                opacity: dimmed ? 0.5 : 1,
                 transform: transformFor(piece, size),
                 zIndex: 4,
               },
@@ -350,6 +379,7 @@ export function SnakeView({
               height: piece.size,
               borderRadius: piece.radius,
               backgroundColor: skin.body,
+              opacity: dimmed ? 0.5 : 1,
               transform: transformFor(piece, piece.size),
               zIndex: piece.isHead ? 6 : 5,
             },
@@ -360,6 +390,7 @@ export function SnakeView({
               facing={facing}
               skin={skin}
               highlighted={showSelection && selected}
+              glow={glow}
             />
           ) : piece.isLink ? null : (
             <SegmentShine size={piece.size} skin={skin} />
@@ -394,11 +425,14 @@ function HeadFace({
   facing,
   skin,
   highlighted,
+  glow,
 }: {
   size: number;
   facing: Facing;
   skin: SnakeSkin;
   highlighted: boolean;
+  /** 選ばれている間だけふわふわ点滅させる 0〜1 の値。 */
+  glow: Animated.Value;
 }) {
   const eye = size * 0.34;
   const pupil = eye * 0.52;
@@ -456,18 +490,36 @@ function HeadFace({
       />
 
       {highlighted ? (
-        <View
-          style={{
-            position: 'absolute',
-            left: -3,
-            top: -3,
-            width: size + 6,
-            height: size + 6,
-            borderRadius: (size + 6) / 2,
-            borderWidth: 2.5,
-            borderColor: 'rgba(255,255,255,0.95)',
-          }}
-        />
+        <>
+          {/* 選択中は頭のまわりにふわふわ光る輪を出して、他のヘビと見分けやすくする */}
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: -size / 2,
+              top: -size / 2,
+              width: size * 2,
+              height: size * 2,
+              borderRadius: size,
+              backgroundColor: colors.accent,
+              opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.05] }),
+              transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.35] }) }],
+            }}
+          />
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: -3,
+              top: -3,
+              width: size + 6,
+              height: size + 6,
+              borderRadius: (size + 6) / 2,
+              borderWidth: 2.5,
+              borderColor: 'rgba(255,255,255,0.95)',
+            }}
+          />
+        </>
       ) : null}
 
       {cheekCenters.map((c, i) => (
