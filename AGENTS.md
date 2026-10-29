@@ -10,7 +10,7 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before 
 - ステージを追加・変更したら `npm test` を通す。全ステージについて
   「定義が健全」「解ける」「`parMoves` が最少手数と一致」「`difficulty` が analyzeLevel の★と一致」
   「品質監査（auditLevel）に指摘がない」を検証している。
-- **ステージ設計は `docs/level-design.md` に従う。** 1 面につき問いを 1 つ、逆算で作る。
+- **ステージ設計は `Obsidian:Projects/snake-puzzle/level-design.md` に従う。** 1 面につき問いを 1 つ、逆算で作る。
   ソルバーは検証に使い、生成は候補出しにとどめる（採否は人が決める）。
   監査に引っかかる面を通したいときは、`level.audit` に理由を書いて明示的に例外にする。
 - ギミック（砂マス・スイッチ/ゲート・ワープ穴）は `slidePath` の中だけで完結させる。

@@ -126,7 +126,7 @@ npm run levels:audit
 飾りになっている要素・盤の分断・使われていない行列・退化解などを名指しする。
 指摘があると `npm test` が落ちる（警告ではなくエラー）。
 
-設計の指針は [docs/level-design.md](docs/level-design.md)。1 面につき問いを 1 つ決め、
+設計の指針は `Obsidian:Projects/snake-puzzle/level-design.md`。1 面につき問いを 1 つ決め、
 逆算で組み、監査にかける。
 
 ## ステージを追加する
