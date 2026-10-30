@@ -11,7 +11,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
         <link rel="manifest" href="/snake-puzzle/manifest.webmanifest" />
         <link rel="apple-touch-icon" href="/snake-puzzle/apple-touch-icon.png" />
-        <meta name="theme-color" content="#8abb34" />
+        <meta name="theme-color" content="#8ed03a" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
