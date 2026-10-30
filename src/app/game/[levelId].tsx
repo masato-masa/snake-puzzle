@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { shouldShowInterstitial } from '@/ads/ads';
 import { AdInterstitial } from '@/components/ad-interstitial';
 import { BackButton } from '@/components/back-button';
+import { SoundButton } from '@/components/sound-button';
 import { GameView } from '@/components/game-view';
 import { SkyBackground } from '@/components/sky-background';
 import type { Level } from '@/engine';
@@ -90,6 +91,7 @@ export default function GameScreen() {
           }}
         />
       ) : null}
+      <SoundButton />
     </View>
   );
 }

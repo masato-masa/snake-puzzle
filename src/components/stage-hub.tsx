@@ -8,6 +8,7 @@ import { WoodSign } from '@/components/wood-sign';
 import { displayName, getLevel, LEVELS, worldOf } from '@/levels/levels';
 import { TILE_IMAGES } from '@/lib/tile-images';
 import { colors, ui } from '@/theme';
+import { SoundButton } from './sound-button';
 
 type Props = {
   /** ホーム画面に反映されている、いま選ばれているステージ。 */
@@ -37,6 +38,7 @@ export function StageHub({
 
   return (
     <SkyBackground theme={theme}>
+      <SoundButton />
       <View style={styles.root}>
         <WoodSign eyebrow={world?.name ?? ''} title={displayName(level)} />
         <DifficultyMeter level={level.difficulty ?? 1} />
