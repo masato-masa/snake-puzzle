@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { isBgmOn, isSfxOn, setBgmOn, setSfxOn, subscribeSound } from '@/lib/sound';
 import { colors, ui } from '@/theme';
@@ -7,16 +8,18 @@ import { colors, ui } from '@/theme';
 /**
  * 右上の「おと」ボタン。押すと効果音と BGM の入切が 2 行出る。
  * 音は Web だけなので、ネイティブ版では出さない。BackButton と同じ見た目・同じ高さ。
+ * 画面全体に重ねて置く（背景の外）。時計の帯やノッチの分は自分で下げる。
  */
 export function SoundButton() {
   const [open, setOpen] = useState(false);
+  const insets = useSafeAreaInsets();
   const [, setTick] = useState(0);
   useEffect(() => subscribeSound(() => setTick((n) => n + 1)), []);
 
   if (Platform.OS !== 'web') return null;
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { top: 18 + insets.top, right: 16 + insets.right }]}>
       <Pressable onPress={() => setOpen((o) => !o)} hitSlop={10} style={styles.button}>
         <Text style={styles.text}>♪ おと</Text>
       </Pressable>
@@ -44,8 +47,6 @@ function Row({ label, on, onPress }: { label: string; on: boolean; onPress: () =
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    top: 18,
-    right: 16,
     zIndex: 20,
     alignItems: 'flex-end',
   },

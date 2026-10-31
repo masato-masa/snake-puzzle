@@ -37,41 +37,46 @@ export function StageHub({
   const theme = world?.theme ?? 'meadow';
 
   return (
-    <SkyBackground theme={theme}>
+    <View style={styles.screen}>
+      <SkyBackground theme={theme}>
+        <View style={styles.root}>
+          <WoodSign eyebrow={world?.name ?? ''} title={displayName(level)} />
+          <DifficultyMeter level={level.difficulty ?? 1} />
+
+          <Pressable
+            onPress={onOpenList}
+            style={({ pressed }) => [styles.tileWrap, pressed && styles.tileWrapPressed]}>
+            <Image source={TILE_IMAGES[theme]} resizeMode="contain" style={styles.tileImage} />
+          </Pressable>
+
+          <Pressable
+            onPress={onPlay}
+            style={({ pressed }) => [styles.playButton, pressed && styles.playButtonPressed]}>
+            <LinearGradient
+              colors={[colors.gemTealLight, colors.gemTealDark]}
+              style={styles.playFace}>
+              <Text style={styles.playText}>プレイ</Text>
+            </LinearGradient>
+          </Pressable>
+
+          <Pressable
+            onPress={onOpenTest}
+            hitSlop={8}
+            style={({ pressed }) => [styles.testButton, pressed && styles.testButtonPressed]}>
+            <Text style={styles.testButtonText}>テスト用</Text>
+          </Pressable>
+        </View>
+        <AdBanner />
+      </SkyBackground>
       <SoundButton />
-      <View style={styles.root}>
-        <WoodSign eyebrow={world?.name ?? ''} title={displayName(level)} />
-        <DifficultyMeter level={level.difficulty ?? 1} />
-
-        <Pressable
-          onPress={onOpenList}
-          style={({ pressed }) => [styles.tileWrap, pressed && styles.tileWrapPressed]}>
-          <Image source={TILE_IMAGES[theme]} resizeMode="contain" style={styles.tileImage} />
-        </Pressable>
-
-        <Pressable
-          onPress={onPlay}
-          style={({ pressed }) => [styles.playButton, pressed && styles.playButtonPressed]}>
-          <LinearGradient
-            colors={[colors.gemTealLight, colors.gemTealDark]}
-            style={styles.playFace}>
-            <Text style={styles.playText}>プレイ</Text>
-          </LinearGradient>
-        </Pressable>
-
-        <Pressable
-          onPress={onOpenTest}
-          hitSlop={8}
-          style={({ pressed }) => [styles.testButton, pressed && styles.testButtonPressed]}>
-          <Text style={styles.testButtonText}>テスト用</Text>
-        </Pressable>
-      </View>
-      <AdBanner />
-    </SkyBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
   root: {
     position: 'relative',
     flex: 1,

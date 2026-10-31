@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Image, StyleSheet, View, type ImageSourcePropType } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { WorldTheme } from '@/levels/levels';
 import { TILE_IMAGES } from '@/lib/tile-images';
@@ -58,6 +59,8 @@ export function SkyBackground({
   children: React.ReactNode;
   theme?: WorldTheme;
 }) {
+  const insets = useSafeAreaInsets();
+
   useEffect(() => {
     preloadTheme(theme);
     scheduleRemainingPreload();
@@ -71,13 +74,24 @@ export function SkyBackground({
         style={[StyleSheet.absoluteFill, styles.backgroundImage]}
       />
 
-      {children}
+      {/* 背景は画面の端（時計の帯の下）まで敷き、中身だけをセーフエリアの内側に置く。
+          ホーム画面に追加したアプリでは、これが無いとボタンが時計やノッチに重なる。 */}
+      <View
+        style={[
+          styles.content,
+          { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right },
+        ]}>
+        {children}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
+    flex: 1,
+  },
+  content: {
     flex: 1,
   },
   backgroundImage: {
