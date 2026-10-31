@@ -57,7 +57,8 @@
     "preset": "jest-expo",
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "__tests__/tools"
+      "__tests__/tools",
+      "<rootDir>/src/app/"
     ],
     "moduleNameMapper": {
       "^@/assets/(.*)$": "<rootDir>/assets/$1",

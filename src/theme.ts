@@ -3,20 +3,27 @@
  * 青空・木枠の盤面・シアンに光るパネル、という組み合わせで統一する。
  */
 export const colors = {
-  skyTop: '#4FB6EF',
-  skyMid: '#8FD6F7',
+  /** アプリ全体のフォールバック背景色（各章の背景は画像に差し替え済み）。 */
   skyBottom: '#D6F0FF',
-  cloud: 'rgba(255,255,255,0.85)',
 
-  caveTop: '#6B4B2A',
-  caveMid: '#A9784A',
-  caveBottom: '#E4C79A',
-  caveRock: 'rgba(60, 38, 18, 0.35)',
+  medalGoldLight: '#FFF3C4',
+  medalGold: '#FFD65C',
+  medalGoldDark: '#C4841A',
+  medalSilverLight: '#FFFFFF',
+  medalSilver: '#E3E7EC',
+  medalSilverDark: '#8B96A3',
+  medalBronzeLight: '#F0C08C',
+  medalBronze: '#D79A5E',
+  medalBronzeDark: '#8A5326',
 
-  nightTop: '#131A3E',
-  nightMid: '#26306B',
-  nightBottom: '#4A4E96',
-  star: 'rgba(255, 250, 220, 0.95)',
+  /** 「次に遊べるステージ」の宝石色。メダル（実績）とは別系統の色にして意味を分ける。 */
+  gemTealLight: '#BAF7F0',
+  gemTeal: '#33E0D1',
+  gemTealDark: '#0E8C82',
+
+  metalLight: '#C7CABF',
+  metal: '#9AA08F',
+  metalDark: '#5E6354',
 
   wood: '#B0762F',
   woodDark: '#6B4116',
@@ -64,17 +71,24 @@ export const mechanics = {
   sand: '#EAD3A0',
   sandEdge: '#C8A461',
   sandDot: 'rgba(122, 74, 33, 0.3)',
-  /** ゲートとスイッチは group ごとに色を変える。 */
+  /**
+   * ゲートとスイッチは group ごとに色を変える。
+   * ヘビの配色（緑・水色・ピンク・オレンジ）と紛らわしくならないよう、
+   * 色相をなるべく離すか、同系統でも「くすんで暗い」トーンにして
+   * 明るく鮮やかなヘビとは別カテゴリだと一目で分かるようにしている
+   * （例: ヘビのピンクは鮮やかな桃色、ゲートのワインレッドは暗い臙脂色）。
+   * 「同じ色のヘビでないと踏めないスイッチ」に見えてしまう誤解を防ぐため。
+   */
   gateGroups: [
-    { main: '#8B5CF6', dark: '#5B21B6' },
-    { main: '#EC4899', dark: '#9D174D' },
-    { main: '#0EA5E9', dark: '#075985' },
+    { main: '#14B8A6', dark: '#0F766E' }, // 深緑がかったティール
+    { main: '#1D4ED8', dark: '#1E3A8A' }, // 濃い藍色
+    { main: '#9D174D', dark: '#831843' }, // 暗いワインレッド
   ],
-  /** ワープ穴はペアごとに色を変える。 */
+  /** ワープ穴はペアごとに色を変える。ゲートと同じ理由で、ヘビとは離した色にする。 */
   warpPairs: [
-    { main: '#7C3AED', dark: '#3B0F86' },
-    { main: '#0891B2', dark: '#064E5B' },
-    { main: '#DB2777', dark: '#831843' },
+    { main: '#C026D3', dark: '#701A75' }, // マゼンタ
+    { main: '#92400E', dark: '#451A03' }, // 暗い赤茶
+    { main: '#475569', dark: '#1E293B' }, // くすんだ鋼色
   ],
 } as const;
 

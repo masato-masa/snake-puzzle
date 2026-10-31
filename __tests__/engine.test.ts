@@ -73,16 +73,39 @@ describe('slide movement', () => {
     expect(after.state.moves).toBe(0);
   });
 
-  it('当たり判定は体と一緒に動く（尻尾が抜けたマスには入れる）', () => {
-    // 長さ 2 のヘビは、尻尾が抜けるので真後ろへ折り返せる
+  it('長さ 2 のヘビも真後ろへは折り返せない（尻尾が抜けるかどうかに関わらず無効）', () => {
     const level = makeLevel({
       rows: 1,
       cols: 4,
       snakes: [{ id: 'a', color: '#0f0', body: cells([[0, 1], [0, 0]]) }],
     });
     const after = move(createGameState(level), 'a', 'left');
+    expect(after.moved).toBe(false);
+    expect(asPairs(after.state.snakes[0].body)).toEqual([[0, 1], [0, 0]]);
+  });
+
+  it('頭 1 マスの蛇は体がないのでどの向きにも動ける', () => {
+    const level = makeLevel({
+      rows: 1,
+      cols: 4,
+      snakes: [{ id: 'a', color: '#0f0', body: cells([[0, 1]]) }],
+    });
+    const after = move(createGameState(level), 'a', 'left');
     expect(after.moved).toBe(true);
-    expect(asPairs(after.state.snakes[0].body)).toEqual([[0, 0], [0, 1]]);
+    expect(asPairs(after.state.snakes[0].body)).toEqual([[0, 0]]);
+  });
+
+  it('当たり判定は体と一緒に動く（真後ろでなければ、尻尾が抜けたマスには入れる）', () => {
+    // コの字（正方形）に体を巻いた蛇。頭の隣は「体の次の節」ではなく尻尾なので、
+    // 真後ろへの反転には当たらず、尻尾が抜けて有効な手になる
+    const level = makeLevel({
+      rows: 2,
+      cols: 2,
+      snakes: [{ id: 'a', color: '#0f0', body: cells([[0, 0], [1, 0], [1, 1], [0, 1]]) }],
+    });
+    const after = move(createGameState(level), 'a', 'right');
+    expect(after.moved).toBe(true);
+    expect(asPairs(after.state.snakes[0].body)).toEqual([[0, 1], [0, 0], [1, 0], [1, 1]]);
   });
 
   it('通過しただけのマスは覆ったことにならない', () => {

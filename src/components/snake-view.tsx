@@ -11,11 +11,7 @@ export type Trail = { path: Pos[]; token: number };
 type Props = {
   snake: Snake;
   cell: number;
-  selected: boolean;
-  /** 複数匹いるときだけ選択状態を見せる。 */
-  showSelection: boolean;
   interactive: boolean;
-  onSelect: (id: string) => void;
   onDirection: (id: string, dir: Dir) => void;
   /** 移動アニメーションが終わった時に呼ぶ。クリア演出のタイミング合わせに使う。 */
   onSettled?: (id: string) => void;
@@ -48,6 +44,8 @@ type Piece = {
   size: number;
   radius: number;
   isHead: boolean;
+  /** 体節どうしをつなぐ四角（丸い体節そのものではない）。 */
+  isLink: boolean;
 };
 
 const facingOf = (body: Pos[]): Facing => {
@@ -115,6 +113,7 @@ const buildPieces = (frames: Frames, cell: number): Piece[] => {
       size,
       radius: size * 0.3,
       isHead: false,
+      isLink: true,
     });
   }
 
@@ -126,6 +125,7 @@ const buildPieces = (frames: Frames, cell: number): Piece[] => {
       size,
       radius: size / 2,
       isHead: i === 0,
+      isLink: false,
     });
   }
 
@@ -169,10 +169,7 @@ const rangesOf = (points: Point[], cell: number) => {
 export function SnakeView({
   snake,
   cell,
-  selected,
-  showSelection,
   interactive,
-  onSelect,
   onDirection,
   onSettled,
   bumpToken = 0,
@@ -245,8 +242,8 @@ export function SnakeView({
   }, [bumpToken, bump]);
 
   // PanResponder は生成時のクロージャを保持するので、最新のハンドラは ref 経由で呼ぶ
-  const handlers = useRef({ onSelect, onDirection, cell, interactive, id: snake.id });
-  handlers.current = { onSelect, onDirection, cell, interactive, id: snake.id };
+  const handlers = useRef({ onDirection, cell, interactive, id: snake.id });
+  handlers.current = { onDirection, cell, interactive, id: snake.id };
   const fired = useRef(false);
 
   const responder = useMemo(
@@ -257,7 +254,6 @@ export function SnakeView({
           handlers.current.interactive && (Math.abs(g.dx) > 2 || Math.abs(g.dy) > 2),
         onPanResponderGrant: () => {
           fired.current = false;
-          handlers.current.onSelect(handlers.current.id);
         },
         onPanResponderMove: (_e, g) => {
           if (fired.current) return;
@@ -351,16 +347,32 @@ export function SnakeView({
             },
           ]}>
           {piece.isHead ? (
-            <HeadFace
-              size={piece.size}
-              facing={facing}
-              skin={skin}
-              highlighted={showSelection && selected}
-            />
-          ) : null}
+            <HeadFace size={piece.size} facing={facing} skin={skin} />
+          ) : piece.isLink ? null : (
+            <SegmentShine size={piece.size} skin={skin} />
+          )}
         </Animated.View>
       ))}
     </>
+  );
+}
+
+/** 頭以外の体節にもつやを乗せて、粒ぞろいのぷるんとした見た目にする。 */
+function SegmentShine({ size, skin }: { size: number; skin: SnakeSkin }) {
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: size * 0.22,
+        top: size * 0.14,
+        width: size * 0.32,
+        height: size * 0.2,
+        borderRadius: size * 0.16,
+        backgroundColor: skin.light,
+        opacity: 0.45,
+      }}
+    />
   );
 }
 
@@ -368,12 +380,10 @@ function HeadFace({
   size,
   facing,
   skin,
-  highlighted,
 }: {
   size: number;
   facing: Facing;
   skin: SnakeSkin;
-  highlighted: boolean;
 }) {
   const eye = size * 0.34;
   const pupil = eye * 0.52;
@@ -430,20 +440,6 @@ function HeadFace({
         }}
       />
 
-      {highlighted ? (
-        <View
-          style={{
-            position: 'absolute',
-            left: -3,
-            top: -3,
-            width: size + 6,
-            height: size + 6,
-            borderRadius: (size + 6) / 2,
-            borderWidth: 2.5,
-            borderColor: 'rgba(255,255,255,0.95)',
-          }}
-        />
-      ) : null}
 
       {cheekCenters.map((c, i) => (
         <View

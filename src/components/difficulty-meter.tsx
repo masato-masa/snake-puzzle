@@ -19,7 +19,7 @@ type Props = {
 export function DifficultyMeter({ level, showLabel = true }: Props) {
   return (
     <View style={styles.row}>
-      {showLabel ? <Text style={styles.label}>むずかしさ</Text> : null}
+      {showLabel ? <Text style={styles.label}>難易度</Text> : null}
       <View style={styles.pips}>
         {[0, 1, 2, 3, 4].map((i) => (
           <View
