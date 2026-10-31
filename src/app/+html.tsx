@@ -17,6 +17,9 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="ヘビパズル" />
         <ScrollViewStyleReset />
+        {/* アプリとして振る舞う。1 画面に収まっている画面を引っぱってもページごと動かない
+            （iOS のバウンド、Android の引っぱって更新を止める）。 */}
+        <style dangerouslySetInnerHTML={{ __html: 'html,body{overscroll-behavior:none}' }} />
       </head>
       <body>{children}</body>
     </html>
