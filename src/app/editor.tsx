@@ -1,4 +1,5 @@
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
+import { SHOW_DEV_TOOLS } from '@/lib/dev-tools';
 import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
@@ -46,7 +47,7 @@ const PALETTE = Object.values(snakeColors);
  * 「登録してあそぶ」でこの端末に保存してすぐ遊べる（ホーム画面の「マイステージ」に並ぶ）。
  * levels.ts に正式採用したい場合は、下の JSON をそのまま貼る。
  */
-export default function EditorScreen() {
+function EditorScreen() {
   const { width } = useWindowDimensions();
   const router = useRouter();
 
@@ -536,3 +537,8 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
 });
+
+/** 「テスト用」からだけ来る画面。ストア版では URL を知っていても開けない（SP-1）。 */
+export default function GuardedEditorScreen() {
+  return SHOW_DEV_TOOLS ? <EditorScreen /> : <Redirect href="/" />;
+}

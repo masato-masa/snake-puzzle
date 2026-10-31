@@ -1,4 +1,5 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useRouter } from 'expo-router';
+import { SHOW_DEV_TOOLS } from '@/lib/dev-tools';
 import { useCallback, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -10,7 +11,7 @@ import { deleteCustomLevel, loadCustomLevels } from '@/storage/custom-levels';
 import { loadProgress, type Progress } from '@/storage/progress';
 import { colors, ui } from '@/theme';
 
-export default function MyStagesScreen() {
+function MyStagesScreen() {
   const router = useRouter();
   const [progress, setProgress] = useState<Progress>({});
   const [customLevels, setCustomLevels] = useState<Level[]>([]);
@@ -214,3 +215,8 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
 });
+
+/** 「テスト用」からだけ来る画面。ストア版では URL を知っていても開けない（SP-1）。 */
+export default function GuardedMyStagesScreen() {
+  return SHOW_DEV_TOOLS ? <MyStagesScreen /> : <Redirect href="/" />;
+}

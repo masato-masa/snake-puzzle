@@ -9,6 +9,7 @@ import { displayName, getLevel, LEVELS, worldOf } from '@/levels/levels';
 import { TILE_IMAGES } from '@/lib/tile-images';
 import { colors, ui } from '@/theme';
 import { SoundButton } from './sound-button';
+import { SHOW_DEV_TOOLS } from '@/lib/dev-tools';
 
 type Props = {
   /** ホーム画面に反映されている、いま選ばれているステージ。 */
@@ -59,12 +60,14 @@ export function StageHub({
             </LinearGradient>
           </Pressable>
 
-          <Pressable
-            onPress={onOpenTest}
-            hitSlop={8}
-            style={({ pressed }) => [styles.testButton, pressed && styles.testButtonPressed]}>
-            <Text style={styles.testButtonText}>テスト用</Text>
-          </Pressable>
+          {SHOW_DEV_TOOLS ? (
+            <Pressable
+              onPress={onOpenTest}
+              hitSlop={8}
+              style={({ pressed }) => [styles.testButton, pressed && styles.testButtonPressed]}>
+              <Text style={styles.testButtonText}>テスト用</Text>
+            </Pressable>
+          ) : null}
         </View>
         <AdBanner />
       </SkyBackground>

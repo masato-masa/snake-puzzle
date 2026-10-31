@@ -1,10 +1,11 @@
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ActionButton } from '@/components/hud';
 import { SkyBackground } from '@/components/sky-background';
+import { SHOW_DEV_TOOLS } from '@/lib/dev-tools';
 import { unlockAllForTesting } from '@/storage/progress';
 import { colors, ui } from '@/theme';
 
@@ -18,6 +19,8 @@ import { colors, ui } from '@/theme';
 export default function TestScreen() {
   const router = useRouter();
   const [status, setStatus] = useState<string | null>(null);
+  // ストア版では URL を知っていても開けない（SP-1）
+  if (!SHOW_DEV_TOOLS) return <Redirect href="/" />;
 
   return (
     <SkyBackground>
