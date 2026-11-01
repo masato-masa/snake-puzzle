@@ -5,6 +5,7 @@ import { StyleSheet, useWindowDimensions, View, type LayoutChangeEvent } from 'r
 import { StageHub } from '@/components/stage-hub';
 import { StagePath } from '@/components/stage-path';
 import { LEVELS } from '@/levels/levels';
+import { loadEndlessProgress } from '@/storage/endless';
 import { loadProgress, type Progress } from '@/storage/progress';
 
 export default function StageSelectScreen() {
@@ -24,10 +25,15 @@ export default function StageSelectScreen() {
   const [selectedLevelId, setSelectedLevelId] = useState<string | null>(null);
   /** 直前に読み込んだ progress。「選択中のステージを今まさにクリアしたか」の判定に使う。 */
   const progressRef = useRef<Progress>({});
+  /** むげんモードで次に遊ぶ面の番号。 */
+  const [endlessNext, setEndlessNext] = useState(1);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
+      loadEndlessProgress().then((p) => {
+        if (active) setEndlessNext(p.current);
+      });
       loadProgress().then((p) => {
         if (!active) return;
         const prevProgress = progressRef.current;
@@ -82,6 +88,8 @@ export default function StageSelectScreen() {
               onPlay={() => goToLevel(activeLevelId)}
               onOpenList={() => setShowStageList(true)}
               onOpenTest={() => router.push('/test')}
+              endlessNext={endlessNext}
+              onOpenEndless={() => router.push('/endless')}
             />
           )}
         </View>

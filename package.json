@@ -51,6 +51,7 @@
     "levels:generate": "jest level-generator --testPathIgnorePatterns=/node_modules/",
     "levels:audit": "jest level-audit --testPathIgnorePatterns=/node_modules/",
     "levels:draft": "jest level-draft --testPathIgnorePatterns=/node_modules/",
+    "levels:endless": "node --no-warnings scripts/audit-endless.mjs",
     "levels:simulate": "jest level-simulate --testPathIgnorePatterns=/node_modules/"
   },
   "jest": {

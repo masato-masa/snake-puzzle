@@ -26,6 +26,7 @@ export default function RootLayout() {
         }}>
         <Stack.Screen name="index" options={{ title: 'ヘビパズル' }} />
         <Stack.Screen name="game/[levelId]" options={{ title: '' }} />
+        <Stack.Screen name="endless" options={{ title: 'むげん' }} />
         <Stack.Screen name="my-stages" options={{ title: 'マイステージ' }} />
         <Stack.Screen name="editor" options={{ title: 'ステージエディタ' }} />
         <Stack.Screen name="test" options={{ title: 'テストツール' }} />

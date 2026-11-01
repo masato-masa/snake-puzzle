@@ -20,6 +20,10 @@ type Props = {
   onOpenList: () => void;
   /** 右下の小さな「テスト用」ボタンを押したとき。 */
   onOpenTest: () => void;
+  /** むげんモードで次に遊ぶ面の番号。 */
+  endlessNext: number;
+  /** 「むげん」を押したとき。ストア版にも出す本番の機能。 */
+  onOpenEndless: () => void;
 };
 
 /**
@@ -32,6 +36,8 @@ export function StageHub({
   onPlay,
   onOpenList,
   onOpenTest,
+  endlessNext,
+  onOpenEndless,
 }: Props) {
   const level = getLevel(levelId) ?? LEVELS[0];
   const world = worldOf(level.id);
@@ -58,6 +64,16 @@ export function StageHub({
               style={styles.playFace}>
               <Text style={styles.playText}>プレイ</Text>
             </LinearGradient>
+          </Pressable>
+
+          <Pressable
+            onPress={onOpenEndless}
+            accessibilityLabel="むげんモード"
+            style={({ pressed }) => [styles.endlessButton, pressed && styles.endlessButtonPressed]}>
+            <Text style={styles.endlessText}>むげん</Text>
+            <Text style={styles.endlessSub}>
+              {endlessNext > 1 ? `${endlessNext} めんから` : 'つぎつぎ うまれる めん'}
+            </Text>
           </Pressable>
 
           {SHOW_DEV_TOOLS ? (
@@ -127,6 +143,33 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: 4,
+  },
+  endlessButton: {
+    minWidth: 168,
+    alignItems: 'center',
+    backgroundColor: colors.panel,
+    borderRadius: 999,
+    borderWidth: 3,
+    borderBottomWidth: 5,
+    borderColor: colors.panelBorder,
+    paddingVertical: 8,
+    paddingHorizontal: 28,
+    ...ui.shadow,
+  },
+  endlessButtonPressed: {
+    marginTop: 2,
+    borderBottomWidth: 3,
+  },
+  endlessText: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 4,
+  },
+  endlessSub: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
   },
   testButton: {
     position: 'absolute',

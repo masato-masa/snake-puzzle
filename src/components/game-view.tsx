@@ -47,6 +47,8 @@ type Props = {
   onBack: () => void;
   /** クリア画面に足す一言（デイリーの連続日数など）。 */
   clearNote?: string;
+  /** 看板の上の小さい字。省略すると章の名前。 */
+  eyebrow?: string;
 };
 
 /**
@@ -73,6 +75,7 @@ export function GameView({
   onList,
   onBack,
   clearNote,
+  eyebrow,
 }: Props) {
   /**
    * 盤面に使える領域は「画面サイズから引き算」ではなく実測する。
@@ -244,7 +247,7 @@ export function GameView({
     <SkyBackground theme={theme}>
       <View style={styles.header}>
         <BackButton onPress={onBack} />
-        <WoodSign eyebrow={world?.name ?? ''} title={displayName(level)} style={styles.headerSign} />
+        <WoodSign eyebrow={eyebrow ?? world?.name ?? ''} title={displayName(level)} style={styles.headerSign} />
         <DifficultyMeter level={level.difficulty ?? 1} />
       </View>
       <View style={styles.screen}>

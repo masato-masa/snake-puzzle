@@ -6,6 +6,7 @@ import { BackButton } from '@/components/back-button';
 import { ActionButton } from '@/components/hud';
 import { SkyBackground } from '@/components/sky-background';
 import { SHOW_DEV_TOOLS } from '@/lib/dev-tools';
+import { clearEndlessProgress, setEndlessCurrentForTesting } from '@/storage/endless';
 import { unlockAllForTesting } from '@/storage/progress';
 import { colors, ui } from '@/theme';
 
@@ -36,6 +37,20 @@ export default function TestScreen() {
             onPress={async () => {
               await unlockAllForTesting();
               setStatus('全ステージを開放しました。ホーム画面に戻ってご確認ください。');
+            }}
+          />
+          <ActionButton
+            label="むげんを 20 めんへ"
+            onPress={async () => {
+              await setEndlessCurrentForTesting(20);
+              setStatus('むげんの次の面を 20 めんにしました。');
+            }}
+          />
+          <ActionButton
+            label="むげんの記録をけす"
+            onPress={async () => {
+              await clearEndlessProgress();
+              setStatus('むげんの記録を消しました（1 めんから）。');
             }}
           />
           {status ? <Text style={styles.status}>{status}</Text> : null}
