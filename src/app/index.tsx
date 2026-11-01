@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { StyleSheet, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
+import { Platform, StyleSheet, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
 
 import { StageHub } from '@/components/stage-hub';
 import { StagePath } from '@/components/stage-path';
@@ -16,8 +16,14 @@ export default function StageSelectScreen() {
    * 知らない。useWindowDimensions がハイドレーション後に正しい値へ更新される保証がなく、
    * 0×0 のまま固まって画面が真っ白になることがあったため、実測レイアウト（onLayout）を
    * 正として使い、useWindowDimensions は初期値の見積もりにとどめる。
+   *
+   * Web では初期値を書き出し時と同じ 0×0 にする。ブラウザの実寸を最初の描画に使うと、
+   * 書き出した HTML（中身なし）と食い違ってハイドレーションに失敗する（React #418）。
+   * 実寸は描画後の onLayout で入る。
    */
-  const [size, setSize] = useState({ width: window.width, height: window.height });
+  const [size, setSize] = useState(
+    Platform.OS === 'web' ? { width: 0, height: 0 } : { width: window.width, height: window.height },
+  );
   const { width, height } = size;
   const [showStageList, setShowStageList] = useState(false);
   const [progress, setProgress] = useState<Progress>({});
