@@ -1,6 +1,4 @@
 import {
-  analyzeLevel,
-  auditLevel,
   canMove,
   createGameState,
   findSimilarLevels,
@@ -413,6 +411,18 @@ describe('validateLevel', () => {
 });
 
 describe('solver', () => {
+  it('覚えた結果は、手数の上限が足りないときには使わない', () => {
+    const level = makeLevel({
+      rows: 5,
+      cols: 5,
+      snakes: [{ id: 'a', color: '#0f0', body: cells([[0, 2], [0, 1], [0, 0]]) }],
+      targets: cells([[4, 2], [4, 3], [4, 4]]).map((pos) => ({ pos })),
+    });
+    expect(solve(level).minMoves).toBe(2);
+    expect(solve(level, { maxMoves: 1 }).solved).toBe(false);
+    expect(solve(level, { maxMoves: 2 }).minMoves).toBe(2);
+  });
+
   it('基準例の最少手数は 2', () => {
     const level = makeLevel({
       rows: 5,
@@ -443,23 +453,9 @@ describe('solver', () => {
   });
 });
 
+// 面ごとの検証（解ける・★・品質監査・最短手順の再生）は重いので
+// __tests__/levels/ の 8 ファイルに分けて並列に回している（SP-5）。
 describe('全ステージの検証', () => {
-  it.each(LEVELS.map((l) => [l.id, l] as const))('%s は定義が健全で解ける', (_id, level) => {
-    expect(validateLevel(level)).toEqual([]);
-
-    const result = solve(level, { maxMoves: 24, maxStates: 400_000 });
-    expect(result.solved).toBe(true);
-    expect(result.minMoves).toBe(level.parMoves);
-
-    // 難易度は自動計算した値と一致させておく（ステージを触ったら必ず更新する）
-    expect(analyzeLevel(level).stars).toBe(level.difficulty);
-  });
-
-  // 品質監査は警告ではなくエラー扱い。例外は level.audit に理由を書いて明示する。
-  it.each(LEVELS.map((l) => [l.id, l] as const))('%s の品質監査に指摘がない', (_id, level) => {
-    expect(auditLevel(level).issues).toEqual([]);
-  });
-
   it('中身が同じ面が並んでいない', () => {
     expect(findSimilarLevels(LEVELS)).toEqual([]);
   });
@@ -467,21 +463,5 @@ describe('全ステージの検証', () => {
   it('章に並べたステージが全部そろっている', () => {
     const listed = WORLDS.flatMap((w) => w.levelIds);
     expect([...listed].sort()).toEqual(LEVELS.map((l) => l.id).sort());
-  });
-
-  it('ソルバーの最短手順をそのまま再生するとクリアになる', () => {
-    for (const level of LEVELS) {
-      const solution = solve(level, { maxMoves: 24 });
-      expect(solution.solved).toBe(true);
-
-      let state = createGameState(level);
-      for (const m of solution.moves ?? []) {
-        const result = move(state, m.snakeId, m.dir);
-        expect(result.moved).toBe(true);
-        state = result.state;
-      }
-      expect(isCleared(state)).toBe(true);
-      expect(state.moves).toBe(level.parMoves);
-    }
   });
 });

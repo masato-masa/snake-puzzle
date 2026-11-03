@@ -59,6 +59,7 @@
     "testPathIgnorePatterns": [
       "/node_modules/",
       "__tests__/tools",
+      "__tests__/levels/shard.ts",
       "<rootDir>/src/app/"
     ],
     "moduleNameMapper": {
