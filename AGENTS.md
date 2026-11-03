@@ -10,7 +10,7 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before 
 - ステージを追加・変更したら `npm test` を通す。全ステージについて
   「定義が健全」「解ける」「`parMoves` が最少手数と一致」「`difficulty` が analyzeLevel の★と一致」
   「品質監査（auditLevel）に指摘がない」を検証している。
-- **ステージ設計は `docs/level-design.md` に従う。** 1 面につき問いを 1 つ、逆算で作る。
+- **ステージ設計は `Obsidian:Projects/snake-puzzle/level-design.md` に従う。** 1 面につき問いを 1 つ、逆算で作る。
   ソルバーは検証に使い、生成は候補出しにとどめる（採否は人が決める）。
   監査に引っかかる面を通したいときは、`level.audit` に理由を書いて明示的に例外にする。
 - ギミック（砂マス・スイッチ/ゲート・ワープ穴）は `slidePath` の中だけで完結させる。
@@ -25,10 +25,9 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before 
 - ジェスチャーは React Native 標準の `PanResponder`、アニメーションは標準の `Animated` を使っている
   （reanimated / gesture-handler のワークレットには依存していない）。
 - プレイ画面の中身は `src/components/game-view.tsx` に集約している。
-  通常ステージ（`app/game/[levelId].tsx`）とデイリー（`app/daily.tsx`）はここに level を渡すだけ。
+  通常ステージ（`app/game/[levelId].tsx`）はここに level を渡すだけ。
 - ヘビは「丸い体節＋つなぎの四角」を、輪郭パス → 本体パス の 2 回に分けて描いている。
   体節ごとに輪郭を描くと継ぎ目が出るので、この 2 パス構成は崩さないこと。
 - 移動アニメーションは `move()` が返す `path` を使い、`src/lib/snake-track.ts` の道すじに沿って
   各体節を 1 マスずつ進める（多点 interpolate）。始点と終点だけを補間すると曲がり角を斜めに
   突っ切ってしまうので、この方式を変えないこと。`__tests__/snake-track.test.ts` が守っている。
-- デイリーは日付を seed にした決定的生成。`buildDailyLevel` の中身を変えると過去の日付の問題も変わる。

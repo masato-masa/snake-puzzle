@@ -90,7 +90,7 @@ const replay = (level: Level, moves: Move[]) => {
 };
 
 /** 通行できるマス（障害物以外。ゲートは開くので通行可能として数える）がひと続きか。 */
-const isConnected = (level: Level): boolean => {
+export const isConnected = (level: Level): boolean => {
   const blocked = new Set(level.walls.map(posKey));
   const open: Pos[] = [];
   for (let r = 0; r < level.rows; r++) {

@@ -20,9 +20,7 @@ type Props = {
   snakes: Snake[];
   /** 1 マスの辺長（px）。呼び出し側で画面サイズから算出する。 */
   cell: number;
-  selectedId?: string | null;
   interactive?: boolean;
-  onSelect?: (id: string) => void;
   onDirection?: (id: string, dir: Dir) => void;
   onSettled?: (id: string) => void;
   /** ヒントで示す 1 手。 */
@@ -40,9 +38,7 @@ export function Board({
   level,
   snakes,
   cell,
-  selectedId,
   interactive = true,
-  onSelect,
   onDirection,
   onSettled,
   hint,
@@ -173,10 +169,7 @@ export function Board({
             key={snake.id}
             snake={snake}
             cell={cell}
-            selected={selectedId === snake.id}
-            showSelection={snakes.length > 1}
             interactive={interactive && !!onDirection}
-            onSelect={(id) => onSelect?.(id)}
             onDirection={(id, dir) => onDirection?.(id, dir)}
             onSettled={onSettled}
             bumpToken={bump?.snakeId === snake.id ? bump.token : 0}

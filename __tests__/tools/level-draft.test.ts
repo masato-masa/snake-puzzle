@@ -40,9 +40,13 @@ const DRAFTS: { world: string; question: string; level: Level }[] = [];
 it('新ステージ案を監査する', () => {
   const lines: string[] = [];
   const allNew = DRAFTS.map((d) => d.level);
+  // findSimilarLevels は渡された配列全体のフィンガープリント（内部でsolve()を使う）を
+  // 毎回計算し直すため、候補ごとにループ内で呼ぶと候補数×(既存+候補)回のsolve()が走って
+  // 極端に遅くなる。ループの外で1回だけ計算し、結果を使い回す。
+  const allDupPairs = findSimilarLevels([...LEVELS, ...allNew]);
 
   for (const { world, question, level } of DRAFTS) {
-    const solution = solve(level, { maxMoves: 20 });
+    const solution = solve(level, { maxMoves: 24 });
     if (!solution.solved) {
       lines.push(`x [${world}] ${level.id.padEnd(24)} 解けない  -- ${question}`);
       continue;
@@ -50,9 +54,7 @@ it('新ステージ案を監査する', () => {
 
     const audit = auditLevel(level);
     const analysis = analyzeLevel(level);
-    const dup = findSimilarLevels([...LEVELS, ...allNew]).filter(
-      (p) => p.a === level.id || p.b === level.id,
-    );
+    const dup = allDupPairs.filter((p) => p.a === level.id || p.b === level.id);
     const head =
       `[${world}] ${level.id.padEnd(24)} ${audit.minMoves}手  中身${audit.meaningfulMoves}  ` +
       `空手率${audit.emptyMoveRatio.toFixed(2)}  最短解${audit.optimalPaths}通り  ★${analysis.stars}`;
