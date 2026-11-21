@@ -19,7 +19,7 @@ export default function Root({ children }: PropsWithChildren) {
         <ScrollViewStyleReset />
         {/* アプリとして振る舞う。1 画面に収まっている画面を引っぱってもページごと動かない
             （iOS のバウンド、Android の引っぱって更新を止める）。 */}
-        <style dangerouslySetInnerHTML={{ __html: 'html,body{overscroll-behavior:none}' }} />
+        <style dangerouslySetInnerHTML={{ __html: 'html,body{overscroll-behavior:none}@media (orientation:landscape) and (max-height:500px) and (max-width:1000px){body>*{visibility:hidden}body::after{content:"↻  スマホを たてに してね";position:fixed;inset:0;display:grid;place-items:center;background:#a7df3e;color:#4a2f10;font:700 18px sans-serif;z-index:9999}}' }} />
       </head>
       <body>{children}</body>
     </html>
