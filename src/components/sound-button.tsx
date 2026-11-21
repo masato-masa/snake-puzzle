@@ -20,7 +20,7 @@ export function SoundButton() {
 
   return (
     <View style={[styles.wrap, { top: 18 + insets.top, right: 16 + insets.right }]}>
-      <Pressable onPress={() => setOpen((o) => !o)} hitSlop={10} style={styles.button}>
+      <Pressable onPress={() => setOpen((o) => !o)} hitSlop={6} style={styles.button}>
         <Text style={styles.text}>♪ おと</Text>
       </Pressable>
       {open ? (
@@ -55,14 +55,16 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 2,
     borderColor: colors.panelBorder,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    minHeight: 44,
+    minWidth: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
     ...ui.shadow,
     shadowOffset: { width: 0, height: 2 },
   },
   text: {
     color: colors.text,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '900',
   },
   panel: {
@@ -81,8 +83,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 16,
-    paddingVertical: 6,
-    minWidth: 140,
+    minHeight: 44,
+    minWidth: 150,
   },
   rowLabel: {
     color: colors.text,
