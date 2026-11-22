@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { LEVELS } from '@/levels/levels';
+
 export type LevelProgress = { cleared: boolean; bestMoves: number };
 export type Progress = Record<string, LevelProgress>;
 
@@ -29,6 +31,28 @@ export const recordClear = async (levelId: string, moves: number): Promise<Progr
       bestMoves: prev?.cleared ? Math.min(prev.bestMoves, moves) : moves,
     },
   };
+  try {
+    await AsyncStorage.setItem(KEY, JSON.stringify(next));
+  } catch {
+    // 保存に失敗してもプレイは続行できる
+  }
+  return next;
+};
+
+/**
+ * テストプレイ用。標準ステージ（LEVELS）を全部クリア済みにして一括開放する。
+ * マイステージ（カスタムレベル）の進行状況は触らずに残す。
+ */
+export const unlockAllForTesting = async (): Promise<Progress> => {
+  const progress = await loadProgress();
+  const next: Progress = { ...progress };
+  for (const level of LEVELS) {
+    const prev = next[level.id];
+    next[level.id] = {
+      cleared: true,
+      bestMoves: prev?.cleared ? prev.bestMoves : (level.parMoves ?? 1),
+    };
+  }
   try {
     await AsyncStorage.setItem(KEY, JSON.stringify(next));
   } catch {

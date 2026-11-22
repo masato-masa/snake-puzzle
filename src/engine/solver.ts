@@ -38,6 +38,14 @@ const reconstruct = (nodes: Node[], index: number): Move[] => {
 };
 
 /**
+ * 解けた結果を面ごとに覚えておく。テストでは同じ面を検証・難易度・監査・類似判定で
+ * 何度も解くので、2 回目からはここで済ませる。幅優先探索は決定的なので、
+ * 「見つけた手数以上の maxMoves」「使った状態数以上の maxStates」なら同じ答えになる。
+ * 面の定義はどこでも書き換えずに作り直しているので、オブジェクトの同一性で引いてよい。
+ */
+const solvedCache = new WeakMap<Level, SolveResult>();
+
+/**
  * 幅優先探索で最少手数の解を求める。
  * 1 手 = (ヘビ, 方向) の組で、1 マスも動けない手は展開しない。
  * ステージ定義が解けることの検証と parMoves の自動算出に使う。
@@ -45,6 +53,9 @@ const reconstruct = (nodes: Node[], index: number): Move[] => {
 export const solve = (level: Level, options: SolveOptions = {}): SolveResult => {
   const maxMoves = options.maxMoves ?? 30;
   const maxStates = options.maxStates ?? 300_000;
+
+  const cached = solvedCache.get(level);
+  if (cached && cached.minMoves! <= maxMoves && cached.visited < maxStates) return cached;
 
   const nodes: Node[] = [
     { snakes: cloneSnakes(level.snakes), parent: -1, move: null, depth: 0 },
@@ -56,13 +67,15 @@ export const solve = (level: Level, options: SolveOptions = {}): SolveResult => 
     const node = nodes[i];
 
     if (isClearedFor(level, node.snakes)) {
-      return {
+      const result: SolveResult = {
         solved: true,
         minMoves: node.depth,
         moves: reconstruct(nodes, i),
         visited: nodes.length,
         exhausted: false,
       };
+      solvedCache.set(level, result);
+      return result;
     }
 
     if (node.depth >= maxMoves) {

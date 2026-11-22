@@ -123,6 +123,12 @@ export const slidePath = (
   const sand = new Set((level.sands ?? []).map(posKey));
   const exits = warpExits(level);
 
+  // 真後ろ（体の次の節がある向き）への移動は、蛇の長さによらず常に無効。
+  // 尻尾が抜けて他のマスには入れる当たり判定（下の selfBlocked）とは別に、
+  // 最初の一歩でだけ判定する（体長 2 だと次の節＝尻尾になり、selfBlocked の
+  // 「尻尾は抜けるので通れる」扱いに紛れて後ろ向きだけ通ってしまうため）。
+  const rearCellKey = snake.body.length > 1 ? posKey(snake.body[1]) : null;
+
   const path: Pos[] = [];
   const visited = new Set<string>();
   let body = [...snake.body];
@@ -142,6 +148,7 @@ export const slidePath = (
     const nextKey = posKey(next);
     if (!inBounds(level, next)) break;
     if (blocked.has(nextKey)) break;
+    if (step === 0 && nextKey === rearCellKey) break;
     if (selfBlocked().has(nextKey)) break;
     if (closedGatesNow().has(nextKey)) break;
     // 一度通ったマスに戻ってきた ＝ 回り続ける手。止まれないので無効

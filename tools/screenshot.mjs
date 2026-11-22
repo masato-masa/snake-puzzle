@@ -2,7 +2,7 @@
 //
 //   node tools/screenshot.mjs                          … 既定の一式
 //   node tools/screenshot.mjs /game/pair-5x5           … ルート指定
-//   node tools/screenshot.mjs /daily --size=390x844    … サイズ指定
+//   node tools/screenshot.mjs / --size=390x844         … サイズ指定
 //
 // 端末にある Chrome / Edge をそのまま使うので、ブラウザの追加ダウンロードは不要。
 // 出力先は screenshots/ 。
@@ -45,7 +45,6 @@ const TARGETS = routes.length
       { route: '/game/warmup-3x3', size: DEFAULT_SIZE },
       { route: '/game/trio-7x7', size: DEFAULT_SIZE },
       { route: '/game/gate-intro-5x5', size: DEFAULT_SIZE },
-      { route: '/daily', size: DEFAULT_SIZE },
       { route: '/', size: '1280x800' },
     ];
 

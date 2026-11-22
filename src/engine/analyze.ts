@@ -60,7 +60,10 @@ const UNSOLVABLE: LevelAnalysis = {
  */
 export const analyzeLevel = (level: Level, options: AnalyzeOptions = {}): LevelAnalysis => {
   const slack = options.slack ?? 2;
-  const maxStates = options.maxStates ?? 80_000;
+  // solve()/auditLevel() のデフォルト（300_000）に合わせる。ここだけ小さいと、
+  // 駒数の多い面で「予算内に解が見つからない」＝ UNSOLVABLE 誤判定（stars が
+  // フォールバック値の 1 になり、本当に易しい面と見分けが付かない）が起きる。
+  const maxStates = options.maxStates ?? 300_000;
 
   const solution = solve(level, { maxMoves: 30, maxStates });
   if (!solution.solved || solution.minMoves === null) return UNSOLVABLE;
@@ -200,11 +203,23 @@ export const analyzeLevel = (level: Level, options: AnalyzeOptions = {}): LevelA
   };
 };
 
-/** スコアを 1〜5 の星に丸める。しきい値は既存ステージの実測から決めている。 */
+/**
+ * スコアを 1〜5 の星に丸める。しきい値は既存ステージの実測とユーザーの体感から決めている。
+ * ユーザー自身が実際にプレイして「companion-block-5x4（score 17.0）と
+ * wall-unlock-6x6（score 25.7）は★1、tangle-lite-6x6（score 46.4）は★2でちょうどいい」
+ * と申告したため、この3点を基準に境界を引き直した：
+ *   - スコア28未満はすべて★1（上の2面を含む、旧来の★2・★3の大半が繰り下がる）
+ *   - スコア50未満を★2（tangle-lite-6x6 がこの帯の上限付近）
+ *   - スコア70未満を★3
+ *   - スコア90未満を★4（custom-1787664829861 のスコア87.9がここに入る）
+ *   - それ以上を★5（tangle-dense-* / gate-tangle-6x6 などスコア100前後の最高難度）
+ * 体感の数値評価は3点しかないため、28〜90の間の境界（50・70・90）は実測スコアの
+ * 空白地帯を均等に区切った推定値。新しいステージでこの帯を埋めたら、また実測値で調整すること。
+ */
 export const starsFor = (score: number): number => {
-  if (score < 14) return 1;
-  if (score < 20) return 2;
-  if (score < 28) return 3;
-  if (score < 40) return 4;
+  if (score < 28) return 1;
+  if (score < 50) return 2;
+  if (score < 70) return 3;
+  if (score < 90) return 4;
   return 5;
 };

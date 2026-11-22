@@ -30,6 +30,12 @@ export type GenerateOptions = {
   maxStars?: number;
   minMoves?: number;
   seed?: number;
+  /** 盤面を何回作り直すか（既定 400）。むげんモードは小分けにして呼ぶ。 */
+  attempts?: number;
+  /** analyzeLevel に渡す局面数の上限。指定すると、打ち切りになった面は採らない。 */
+  maxStates?: number;
+  /** 障害物を盤の中心に対して点対称に置く。散らばった印象を減らし、配置にまとまりを出す。 */
+  symmetricWalls?: boolean;
 };
 
 export type GeneratedLevel = { level: Level; analysis: LevelAnalysis };
@@ -70,10 +76,18 @@ const buildLayout = (options: GenerateOptions, rng: () => number): Layout | null
   };
 
   const walls: Pos[] = [];
-  for (let i = 0; i < (options.wallCount ?? 0); i++) {
+  const wallCount = options.wallCount ?? 0;
+  while (walls.length < wallCount) {
     const p = take();
     if (!p) return null;
     walls.push(p);
+    if (options.symmetricWalls && walls.length < wallCount) {
+      const mirror = { r: rows - 1 - p.r, c: cols - 1 - p.c };
+      if (!used.has(posKey(mirror))) {
+        used.add(posKey(mirror));
+        walls.push(mirror);
+      }
+    }
   }
 
   const sands: Pos[] = [];
@@ -168,8 +182,10 @@ export const generateLevel = (options: GenerateOptions): GeneratedLevel | null =
   const minStars = options.minStars ?? 1;
   const maxStars = options.maxStars ?? 5;
   const minMoves = options.minMoves ?? 2;
+  const attempts = options.attempts ?? 400;
+  const strictBudget = options.maxStates !== undefined;
 
-  for (let attempt = 0; attempt < 400; attempt++) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     const layout = buildLayout(options, rng);
     if (!layout) continue;
 
@@ -214,8 +230,9 @@ export const generateLevel = (options: GenerateOptions): GeneratedLevel | null =
     const level: Level = { ...base, targets };
     if (validateLevel(level).length > 0) continue;
 
-    const analysis = analyzeLevel(level);
+    const analysis = analyzeLevel(level, { maxStates: options.maxStates });
     if (!analysis.solvable) continue;
+    if (strictBudget && analysis.truncated) continue;
     if (analysis.minMoves < minMoves) continue;
     if (analysis.stars < minStars || analysis.stars > maxStars) continue;
 

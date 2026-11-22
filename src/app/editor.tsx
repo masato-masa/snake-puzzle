@@ -1,7 +1,9 @@
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
+import { SHOW_DEV_TOOLS } from '@/lib/dev-tools';
 import { useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
+import { BackButton } from '@/components/back-button';
 import { Board } from '@/components/board';
 import { ActionButton } from '@/components/hud';
 import { SkyBackground } from '@/components/sky-background';
@@ -45,7 +47,7 @@ const PALETTE = Object.values(snakeColors);
  * 「登録してあそぶ」でこの端末に保存してすぐ遊べる（ホーム画面の「マイステージ」に並ぶ）。
  * levels.ts に正式採用したい場合は、下の JSON をそのまま貼る。
  */
-export default function EditorScreen() {
+function EditorScreen() {
   const { width } = useWindowDimensions();
   const router = useRouter();
 
@@ -279,6 +281,7 @@ export default function EditorScreen() {
 
   return (
     <SkyBackground>
+      <BackButton onPress={() => router.back()} />
       <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.row}>
         <Stepper label="行" value={rows} onChange={setRows} />
@@ -393,6 +396,10 @@ export default function EditorScreen() {
       <Text selectable style={styles.json}>
         {json}
       </Text>
+
+      <Pressable style={styles.testLink} onPress={() => router.push('/test')}>
+        <Text style={styles.testLinkLabel}>テストツール（全ステージ開放など）</Text>
+      </Pressable>
       </ScrollView>
     </SkyBackground>
   );
@@ -432,6 +439,7 @@ const panel = {
 const styles = StyleSheet.create({
   content: {
     padding: 16,
+    paddingTop: 56,
     gap: 12,
     alignItems: 'center',
     paddingBottom: 60,
@@ -517,4 +525,20 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     padding: 10,
   },
+  testLink: {
+    marginTop: 10,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  testLinkLabel: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
 });
+
+/** 「テスト用」からだけ来る画面。ストア版では URL を知っていても開けない（SP-1）。 */
+export default function GuardedEditorScreen() {
+  return SHOW_DEV_TOOLS ? <EditorScreen /> : <Redirect href="/" />;
+}
