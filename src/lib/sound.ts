@@ -67,8 +67,11 @@ export function setBgmOn(value: boolean): void {
 
 // ---- 効果音 ----
 
-/** 録音はピーク 0.9 にそろえてあるので、役割に合わせて下げる。 */
-const GAIN: Record<SfxName, number> = { move: 0.5, blocked: 0.35, clear: 0.7, select: 0.3 };
+/**
+ * 録音のピークは約 -1dBFS。鳴っている部分の RMS（node scripts/audit-sfx.mjs で測定。king-puzzle の常設スクリプト）が
+ * 目標（move・blocked -22、clear -20、select -24 dBFS）になる倍率。補正前は -17.4〜-25.8dB で幅 8.4dB、補正後は 4dB。
+ */
+const GAIN: Record<SfxName, number> = { move: 0.6, blocked: 0.32, clear: 0.52, select: 0.37 };
 
 let ctx: AudioContext | null = null;
 let bgmBus: GainNode | null = null;

@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   },
   endlessSub: {
     color: colors.textMuted,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
   },
   testButton: {
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   },
   testButtonText: {
     color: colors.textOnDark,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
     opacity: 0.8,
   },

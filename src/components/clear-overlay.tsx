@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   },
   starsLabel: {
     color: colors.textMuted,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     marginTop: 6,
   },

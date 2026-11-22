@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     color: colors.woodDark,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '900',
     letterSpacing: 1,
   },
