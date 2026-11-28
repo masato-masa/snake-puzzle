@@ -23,14 +23,17 @@ export function HUD({
 }: Props) {
   return (
     <View style={styles.container}>
+      {/* 数字は 1 枚の板にまとめる（2 枚の箱を並べると、ボタンと合わせて箱が 5 つになって散らかる）。 */}
       <View style={styles.stats}>
         <Stat label="てすう" value={`${moves}`} />
+        {parMoves !== undefined ? <View style={styles.statDivider} /> : null}
         {parMoves !== undefined ? <Stat label="さいしょう手数" value={`${parMoves}`} /> : null}
       </View>
+      {/* ボタンは 1 行に等分。折り返すと行ごとに幅がばらつく。 */}
       <View style={styles.buttons}>
-        <ActionButton label="1手もどす" onPress={onUndo} disabled={!canUndo} />
-        <ActionButton label="やりなおす" onPress={onReset} />
-        {onHint ? <ActionButton label={hintLabel} onPress={onHint} tone="primary" /> : null}
+        <ActionButton label="1手もどす" onPress={onUndo} disabled={!canUndo} compact />
+        <ActionButton label="やりなおす" onPress={onReset} compact />
+        {onHint ? <ActionButton label={hintLabel} onPress={onHint} tone="primary" compact /> : null}
       </View>
     </View>
   );
@@ -50,11 +53,14 @@ export function ActionButton({
   onPress,
   disabled,
   tone = 'default',
+  compact,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   tone?: 'default' | 'primary' | 'success';
+  /** 1 行に等分して並べる用（幅を中身で決めず、親の幅を分け合う）。 */
+  compact?: boolean;
 }) {
   const palette =
     tone === 'primary'
@@ -69,6 +75,7 @@ export function ActionButton({
       disabled={disabled}
       style={({ pressed }) => [
         styles.button,
+        compact && styles.buttonCompact,
         {
           backgroundColor: palette.bg,
           borderColor: palette.edge,
@@ -77,7 +84,9 @@ export function ActionButton({
         },
         disabled && styles.buttonDisabled,
       ]}>
-      <Text style={[styles.buttonLabel, { color: palette.text }]}>{label}</Text>
+      <Text style={[styles.buttonLabel, compact && styles.buttonLabelCompact, { color: palette.text }]} numberOfLines={1}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -90,22 +99,26 @@ const styles = StyleSheet.create({
   },
   stats: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    alignItems: 'center',
     width: '100%',
-    gap: 10,
-  },
-  stat: {
-    flex: 1,
-    minWidth: 0,
-    maxWidth: 220,
+    maxWidth: 440,
     backgroundColor: colors.panel,
     borderRadius: 14,
     borderWidth: 2,
     borderColor: colors.panelBorder,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    alignItems: 'center',
+    paddingVertical: 6,
     ...ui.shadow,
+  },
+  stat: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+  },
+  statDivider: {
+    width: 2,
+    alignSelf: 'stretch',
+    marginVertical: 2,
+    backgroundColor: colors.panelBorder,
   },
   statLabel: {
     color: colors.textMuted,
@@ -120,9 +133,19 @@ const styles = StyleSheet.create({
   },
   buttons: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    width: '100%',
+    maxWidth: 440,
+    gap: 8,
+  },
+  buttonCompact: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 4,
+    minHeight: 48,
     justifyContent: 'center',
-    gap: 10,
+  },
+  buttonLabelCompact: {
+    fontSize: 14,
   },
   button: {
     borderRadius: 16,

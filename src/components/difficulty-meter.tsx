@@ -36,7 +36,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
+    // 草の背景の上でも読めるよう、うすい地の上に置く。
+    backgroundColor: colors.panel,
+    borderRadius: 999,
+    paddingVertical: 3,
+    paddingHorizontal: 10,
   },
   label: {
     color: colors.textMuted,

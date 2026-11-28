@@ -102,12 +102,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 14,
-    padding: 24,
+    // 上は右上の「おと」ボタン、下は右下の「テスト用」に重ならない分をあける（320×568 で看板とボタンが重なっていた）。
+    paddingTop: 62,
+    paddingBottom: 48,
+    paddingHorizontal: 24,
   },
   tileWrap: {
     width: '78%',
     aspectRatio: 1,
     maxWidth: 320,
+    // 縦が足りない画面では、絵のほうを縮めて収める。
+    flexShrink: 1,
+    minHeight: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
